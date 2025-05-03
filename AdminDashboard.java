@@ -165,7 +165,8 @@ public class AdminDashboard extends Application {
         btnLogout.getStyleClass().add(".buttonlogout1");
 
         btnDashboard.setOnAction(e -> loadDashboardContent());
-        btnAttendance.setOnAction(e -> setMainContent(new Label("📅 Attendance Management")));
+        btnAttendance.setOnAction(e -> setMainContent(new AttendanceView().getRoot()));
+
         btnChildren.setOnAction(e -> setMainContent(new Label("🧒 Children & Parents Section")));
         btnStaff.setOnAction(e -> setMainContent(new Label("👩‍🏫 Staff Management Section")));
         btnLogout.setOnAction(event -> {
@@ -412,5 +413,6 @@ public class AdminDashboard extends Application {
 
         });
     }
+    
 
 }
