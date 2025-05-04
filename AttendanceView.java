@@ -12,6 +12,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.application.Platform;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -20,12 +21,15 @@ import java.time.LocalDate;
 
 public class AttendanceView {
 
+	private static AttendanceView currentInstance;
     private VBox root;
     private TableView<AttendanceRecord> table;
     private ObservableList<AttendanceRecord> masterRecords = FXCollections.observableArrayList();
     private FilteredList<AttendanceRecord> filteredRecords = new FilteredList<>(masterRecords, p -> true);
+    private PieChart chart;  // ✅ make it global
 
     public AttendanceView() {
+    	currentInstance = this; 
         root = new VBox(15);
         root.setPadding(new Insets(20));
 
@@ -37,10 +41,24 @@ public class AttendanceView {
         CheckBox attendanceCheckbox = new CheckBox("Mark All Present");
         attendanceCheckbox.setOnAction(e -> {
             for (AttendanceRecord record : filteredRecords) {
-                record.setPresent(attendanceCheckbox.isSelected());
+                boolean nowPresent = attendanceCheckbox.isSelected();
+                record.setPresent(nowPresent);
+                if (nowPresent) {
+                    String nowTime = java.time.LocalDateTime.now().format(
+                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                    );
+                    record.setScanTime(nowTime);
+                } else {
+                    record.setScanTime("");
+                }
             }
             table.refresh();
+            // ✅ Refresh chart and dashboard when "Mark All Present" used
+            updateChart(chart);
+            AdminDashboard.updateDashboardData();
         });
+
+
 
         Button viewReportsButton = new Button("View Reports");
         viewReportsButton.setOnAction(e -> showAllReportsWindow());
@@ -84,9 +102,26 @@ public class AttendanceView {
 
         header.getChildren().addAll(attendanceCheckbox, viewReportsButton, reasonDropdown, clearFilter);
 
+        Label dateTimeLabel = new Label();  // Will hold date & time
+        dateTimeLabel.setStyle("-fx-font-size: 16px; -fx-text-fill: #555;");
+
         Label title = new Label("Attendance");
         title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-        title.setAlignment(Pos.CENTER_RIGHT);
+
+        HBox titleBar = new HBox(20, title, dateTimeLabel);
+        titleBar.setAlignment(Pos.CENTER_RIGHT);
+        
+        javafx.animation.Timeline clock = new javafx.animation.Timeline(
+        	    new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1), e -> {
+        	        String now = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy")) + 
+        	                     " | " + java.time.LocalTime.now().withNano(0).toString();
+        	        dateTimeLabel.setText(now);
+        	    })
+        	);
+        	clock.setCycleCount(javafx.animation.Animation.INDEFINITE);
+        	clock.play();
+
+
 
         table = new TableView<>();
 
@@ -102,6 +137,10 @@ public class AttendanceView {
         presentCol.setEditable(true); 
         
         TableColumn<AttendanceRecord, String> reasonCol = new TableColumn<>("Reason");
+        
+        TableColumn<AttendanceRecord, String> dateTimeCol = new TableColumn<>("Date & Time");
+        dateTimeCol.setCellValueFactory(data -> data.getValue().scanTimeProperty());
+
         reasonCol.setCellValueFactory(data -> data.getValue().reasonProperty());
         reasonCol.setCellFactory(col -> new TableCell<>() {
             private final ComboBox<String> comboBox = new ComboBox<>();
@@ -165,7 +204,7 @@ public class AttendanceView {
 
         });
 
-        table.getColumns().addAll(nameCol, presentCol, reasonCol);
+        table.getColumns().addAll(nameCol, presentCol, reasonCol, dateTimeCol);
         table.setItems(filteredRecords);
 
         Label chartTitle = new Label("Today's Attendance");
@@ -174,7 +213,7 @@ public class AttendanceView {
         Button saveBtn = new Button("Save Attendance");
         saveBtn.setOnAction(e -> saveAttendance());
 
-        PieChart chart = new PieChart();
+        chart = new PieChart();
         chart.setTitle("Today's Attendance");
         updateChart(chart); // right after initializing the chart
 
@@ -182,10 +221,12 @@ public class AttendanceView {
         Button refreshChart = new Button("Refresh Chart");
         refreshChart.setOnAction(e -> updateChart(chart));
 
-        root.getChildren().addAll(title, header, table, saveBtn, chartTitle, chart, refreshChart);
+        root.getChildren().addAll(titleBar, header, table, saveBtn, chartTitle, chart, refreshChart);
 
         loadStudents();
         updateChart(chart);
+     
+
     }
 
     private void showAllReportsWindow() {
@@ -268,27 +309,85 @@ public class AttendanceView {
     private void loadStudents() {
         masterRecords.clear();
         try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "SELECT id, name FROM children";
+        	String sql = """
+        		    SELECT c.id, c.name, 
+        		           CASE 
+        		               WHEN a.scan_time IS NOT NULL THEN 1 
+        		               ELSE 0 
+        		           END AS is_present,
+        		           IFNULL(a.scan_time, '') AS scan_time
+        		    FROM children c
+        		    LEFT JOIN (
+        		        SELECT child_id, MIN(scan_time) AS scan_time
+        		        FROM attendance 
+        		        WHERE DATE(scan_time) = CURDATE()
+        		        GROUP BY child_id
+        		    ) a ON c.id = a.child_id
+        		    """;
+
+
             PreparedStatement stmt = conn.prepareStatement(sql);
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
-                masterRecords.add(new AttendanceRecord(rs.getInt("id"), rs.getString("name")));
+                int childId = rs.getInt("id");
+                String name = rs.getString("name");
+                boolean present = rs.getBoolean("is_present");
+                String scanTimeStr = rs.getString("scan_time");
+
+                AttendanceRecord record = new AttendanceRecord(childId, name);
+                record.setPresent(present);
+             // Automatically set scan time when marked present
+                record.presentProperty().addListener((obs, wasPresent, isNowPresent) -> {
+                    if (isNowPresent) {
+                        if (record.getScanTime() == null || record.getScanTime().isEmpty()) {
+                            // ✅ Proper formatted date & time
+                            String nowTime = java.time.LocalDateTime.now().format(
+                                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                            );
+                            record.setScanTime(nowTime);
+                        }
+                    } else {
+                        record.setScanTime("");
+                    }
+
+                    // ✅ Auto refresh chart and dashboard when ticked or unticked
+                    updateChart(chart);
+                    AdminDashboard.updateDashboardData();
+                });
+
+
+                record.setScanTime(scanTimeStr != null ? scanTimeStr : "");
+
+                masterRecords.add(record);
             }
+
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+
+
     private void saveAttendance() {
-        LocalDate today = LocalDate.now();
+    	LocalDate today = LocalDate.now();
+    	java.sql.Timestamp now = new java.sql.Timestamp(System.currentTimeMillis());
+
         try (Connection conn = DatabaseConnection.getConnection()) {
             for (AttendanceRecord record : filteredRecords) {
-                String sql = "REPLACE INTO attendance_status (child_id, date, is_present, reason) VALUES (?, ?, ?, ?)";
+            	String sql = "REPLACE INTO attendance_status (child_id, date, is_present, reason, scan_time) VALUES (?, ?, ?, ?, ?)";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setInt(1, record.getChildId());
                 stmt.setDate(2, java.sql.Date.valueOf(today));
                 stmt.setBoolean(3, record.isPresent());
                 stmt.setString(4, record.getReason());
+                String scanTimeStr = record.getScanTime();
+                if (scanTimeStr != null && !scanTimeStr.isEmpty()) {
+                    stmt.setTimestamp(5, java.sql.Timestamp.valueOf(scanTimeStr));
+                } else {
+                    stmt.setTimestamp(5, null);  // No time
+                }
+
                 stmt.executeUpdate();
             }
             new Alert(Alert.AlertType.INFORMATION, "Attendance saved.").showAndWait();
@@ -299,57 +398,43 @@ public class AttendanceView {
 
     private void updateChart(PieChart chart) {
         try (Connection conn = DatabaseConnection.getConnection()) {
-        	String sql = """
-        		    SELECT final_status, COUNT(*) FROM (
-        		        SELECT c.id, MAX(a.is_present) AS final_status
-        		        FROM attendance_status a
-        		        JOIN children c ON a.child_id = c.id
-        		        WHERE a.date = CURDATE()
-        		        GROUP BY c.id
-        		    ) AS subquery
-        		    GROUP BY final_status
-        		""";
+            String sql = """
+                SELECT 
+                    SUM(CASE WHEN is_present THEN 1 ELSE 0 END) AS present,
+                    SUM(CASE WHEN NOT is_present THEN 1 ELSE 0 END) AS absent
+                FROM attendance_status 
+                WHERE date = CURDATE()
+                """;
+
             PreparedStatement stmt = conn.prepareStatement(sql);
             ResultSet rs = stmt.executeQuery();
 
             int present = 0, absent = 0;
-            while (rs.next()) {
-            	boolean isPresent = rs.getBoolean("final_status");  // ✅ NEW!
-                int count = rs.getInt(2);
-                if (isPresent) present = count;
-                else absent = count;
+            if (rs.next()) {
+                present = rs.getInt("present");
+                absent = rs.getInt("absent");
             }
-            
+
             int total = present + absent;
 
-            // Prepare data with percentage in label
             PieChart.Data presentData = new PieChart.Data(
                 "Present (" + present + (total > 0 ? " | " + (present * 100 / total) + "%" : "") + ")", present
             );
             PieChart.Data absentData = new PieChart.Data(
                 "Absent (" + absent + (total > 0 ? " | " + (absent * 100 / total) + "%" : "") + ")", absent
             );
+
             chart.setData(FXCollections.observableArrayList(presentData, absentData));
 
-            // Add tooltips for each slice
-            Tooltip presentTip = new Tooltip(present + " students present");
-            Tooltip absentTip = new Tooltip(absent + " students absent");
-
-            Tooltip.install(presentData.getNode(), presentTip);
-            Tooltip.install(absentData.getNode(), absentTip);
-
-            // Optional: Smooth resizing
-            VBox.setVgrow(chart, Priority.ALWAYS);
-            chart.setMinHeight(200);
-      
+            Tooltip.install(presentData.getNode(), new Tooltip(present + " students present"));
+            Tooltip.install(absentData.getNode(), new Tooltip(absent + " students absent"));
 
         } catch (Exception e) {
             e.printStackTrace();
         }
-        VBox.setVgrow(chart, Priority.ALWAYS);
-        chart.setMinHeight(200); // Optional: force height
-
     }
+
+
 
 
 
@@ -411,6 +496,58 @@ public class AttendanceView {
         reportStage.setScene(scene);
         reportStage.show();
     }
+
+    public static void markPresentByChildId(int childId) {
+        Platform.runLater(() -> {
+            if (currentInstance != null) {
+
+                boolean found = false;
+                for (AttendanceRecord record : currentInstance.masterRecords) {
+                    if (record.getChildId() == childId) {
+                        record.setPresent(true);
+                        found = true;
+                        break;
+                    }
+                }
+
+                // Reload attendance reasons and chart from database
+                currentInstance.loadStudents();   // ✅ refresh all data (so absent/present list updates)
+                currentInstance.updateChart(currentInstance.chart);
+                currentInstance.table.refresh();
+            }
+        });
+    }
+
+ // ✅ NEW STATIC FUNCTION to update chart when NFC scanned
+    public static void updateChartFromStatic() {
+        Platform.runLater(() -> {
+            if (currentInstance != null) {
+                if (currentInstance.chart != null) {
+                    currentInstance.updateChart(currentInstance.chart);
+                    currentInstance.table.refresh();
+                } else {
+                    System.out.println("⚠ Pie chart not available (Attendance tab might be closed). Skipping chart update.");
+                }
+            } else {
+                System.out.println("⚠ AttendanceView not open. Skipping chart update.");
+            }
+        });
+    }
+    public static void refreshUI() {
+        Platform.runLater(() -> {
+            if (currentInstance != null) {
+                currentInstance.loadStudents(); // reload the attendance list
+                if (currentInstance.chart != null) {
+                    currentInstance.updateChart(currentInstance.chart);
+                }
+                currentInstance.table.refresh();
+            }
+        });
+    }
+
+
+
+
     
     
     

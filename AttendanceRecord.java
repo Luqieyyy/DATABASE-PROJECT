@@ -8,13 +8,24 @@ public class AttendanceRecord {
     private final BooleanProperty present = new SimpleBooleanProperty(false);
     private final StringProperty reason = new SimpleStringProperty("");
     private final StringProperty customReason = new SimpleStringProperty("");
-    
+    private final SimpleStringProperty scanTime = new SimpleStringProperty("");
+
     
     public AttendanceRecord(int childId, String name) {
         this.childId = new SimpleIntegerProperty(childId);
         this.name = new SimpleStringProperty(name);
     }
+    public StringProperty scanTimeProperty() {
+        return scanTime;
+    }
 
+    public String getScanTime() {
+        return scanTime.get();
+    }
+
+    public void setScanTime(String scanTime) {
+        this.scanTime.set(scanTime);
+    }
     public int getChildId() { 
     	return childId.get();
     	}

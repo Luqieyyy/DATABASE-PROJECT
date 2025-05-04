@@ -165,7 +165,11 @@ public class AdminDashboard extends Application {
         btnLogout.getStyleClass().add(".buttonlogout1");
 
         btnDashboard.setOnAction(e -> loadDashboardContent());
-        btnAttendance.setOnAction(e -> setMainContent(new AttendanceView().getRoot()));
+        btnAttendance.setOnAction(e -> {
+            AttendanceView view = new AttendanceView();
+            setMainContent(view.getRoot());
+        });
+
 
         btnChildren.setOnAction(e -> setMainContent(new Label("🧒 Children & Parents Section")));
         btnStaff.setOnAction(e -> setMainContent(new Label("👩‍🏫 Staff Management Section")));
@@ -243,13 +247,20 @@ public class AdminDashboard extends Application {
         dashboardContent.setAlignment(Pos.TOP_LEFT);
         dashboardContent.getStyleClass().add("button-birulawa1");
 
+        Label dateLabel = new Label();
+        dateLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+        
         Label clockLabel = new Label();
         clockLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+        
+        
         Timeline clock = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             clockLabel.setText("Time: " + java.time.LocalTime.now().withNano(0).toString());
+            dateLabel.setText("Date: " + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy")));
         }));
         clock.setCycleCount(Animation.INDEFINITE);
         clock.play();
+
 
         scannedToday = new Label();
         scannedToday.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 20px; -fx-background-radius: 50px;");
@@ -263,7 +274,7 @@ public class AdminDashboard extends Application {
         topRow.setAlignment(Pos.CENTER);
 
         Label scanLabel = new Label("Live Scans:");
-        HBox statsBox = new HBox(0, scanLabel, new Region(), clockLabel);
+        HBox statsBox = new HBox(30, scanLabel, new Region(), dateLabel, clockLabel);
         HBox.setHgrow(statsBox.getChildren().get(1), Priority.ALWAYS);
         statsBox.setAlignment(Pos.TOP_CENTER);
 

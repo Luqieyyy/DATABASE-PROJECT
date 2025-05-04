@@ -8,14 +8,12 @@ import java.sql.ResultSet;
 import java.time.LocalDateTime;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ButtonBar;
 
 public class NFCReader implements Runnable {
 
     private SerialPort serialPort;
     private final String portName;
-    private volatile boolean running = true;  // ✅ New: to control the loop safely
+    private volatile boolean running = true;
 
     public NFCReader(String portName) {
         this.portName = portName;
@@ -23,87 +21,53 @@ public class NFCReader implements Runnable {
 
     @Override
     public void run() {
-    	while (running && !Thread.currentThread().isInterrupted()) {  // 🔥 Safe exit if interrupted
+        while (running && !Thread.currentThread().isInterrupted()) {
 
-        serialPort = SerialPort.getCommPort(portName);
-        serialPort.setBaudRate(115200);
-        serialPort.setNumDataBits(8);
-        serialPort.setNumStopBits(SerialPort.ONE_STOP_BIT);
-        serialPort.setParity(0);
+            serialPort = SerialPort.getCommPort(portName);
+            serialPort.setBaudRate(115200);
+            serialPort.setNumDataBits(8);
+            serialPort.setNumStopBits(SerialPort.ONE_STOP_BIT);
+            serialPort.setParity(0);
 
-        if (serialPort.openPort()) {
-            System.out.println("✅ Serial port " + portName + " opened successfully!");
-        } else {
-            System.out.println("❌ Failed to open serial port " + portName + "! Maybe wrong COM or port already busy.");
-            return;
-        }
+            if (serialPort.openPort()) {
+                System.out.println("✅ Serial port " + portName + " opened successfully!");
+            } else {
+                System.out.println("❌ Failed to open serial port " + portName + "!");
+                return;
+            }
 
-        System.out.println("📡 Listening for NFC tags...");
+            System.out.println("📡 Listening for NFC tags...");
 
-        try (InputStream in = serialPort.getInputStream()) {
-            byte[] buffer = new byte[64];
+            try (InputStream in = serialPort.getInputStream()) {
+                byte[] buffer = new byte[64];
 
-            while (running) {  // ✅ Loop runs only if running == true
-                if (in.available() > 0) {
-                    int len = in.read(buffer);
-                    if (len > 0) {
-                        String tagId = bytesToHex(buffer, len).trim();
-                        if (tagId.length() >= 8 && tagId.length() <= 40) {
-                            System.out.println("🏷️ Tag detected: " + tagId);
-                            processTag(tagId);
-                        } else {
-                            System.out.println("⚠️ Ignored invalid tag: " + tagId);
+                while (running) {
+                    if (in.available() > 0) {
+                        int len = in.read(buffer);
+                        if (len > 0) {
+                            String tagId = bytesToHex(buffer, len).trim();
+                            if (tagId.length() >= 8 && tagId.length() <= 40) {
+                                System.out.println("🏷️ Tag detected: " + tagId);
+                                processTag(tagId);
+                            } else {
+                                System.out.println("⚠️ Ignored invalid tag: " + tagId);
+                            }
                         }
                     }
+                    Thread.sleep(300);
                 }
-                Thread.sleep(300);
-            }
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (serialPort != null && serialPort.isOpen()) {
-                serialPort.closePort();
-                System.out.println("🔒 Serial port closed.");
-            }
-        }
-    	}
-        
-    }
-    public void startReading() {
-        if (serialPort == null || !serialPort.isOpen()) {
-            System.out.println("⚠️ Serial port not open!");
-            return;
-        }
-
-        System.out.println("📡 Listening for NFC tags...");
-        running = true;
-
-        try {
-            InputStream in = serialPort.getInputStream();
-            byte[] buffer = new byte[64];
-
-            while (running) {   // <<== Use running flag here
-                if (in.available() > 0) {
-                    int len = in.read(buffer);
-                    if (len > 0) {
-                        String tagId = bytesToHex(buffer, len).trim();
-                        if (tagId.length() >= 8 && tagId.length() <= 40) {
-                            System.out.println("🏷️ Tag detected: " + tagId);
-                            processTag(tagId);
-                        } else {
-                            System.out.println("⚠️ Ignored invalid tag: " + tagId);
-                        }
-                    }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                if (serialPort != null && serialPort.isOpen()) {
+                    serialPort.closePort();
+                    System.out.println("🔒 Serial port closed.");
                 }
-                Thread.sleep(300);
             }
-
-            in.close();
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
+
     public void stopReading() {
         running = false;
         if (serialPort != null && serialPort.isOpen()) {
@@ -122,6 +86,7 @@ public class NFCReader implements Runnable {
 
     private void processTag(String tagId) {
         try (Connection conn = DatabaseConnection.getConnection()) {
+
             String query = "SELECT id, name FROM children WHERE nfc_uid = ?";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, tagId);
@@ -131,7 +96,7 @@ public class NFCReader implements Runnable {
                 int childId = rs.getInt("id");
                 String childName = rs.getString("name");
 
-                // Check last scan
+                // Check last scan (to prevent duplicate)
                 String lastScanQuery = "SELECT scan_time FROM attendance WHERE child_id = ? ORDER BY scan_time DESC LIMIT 1";
                 PreparedStatement lastScanStmt = conn.prepareStatement(lastScanQuery);
                 lastScanStmt.setInt(1, childId);
@@ -148,14 +113,27 @@ public class NFCReader implements Runnable {
                 }
 
                 if (allowInsert) {
+
+                    // 🔥 1. Insert to attendance
                     String insertSql = "INSERT INTO attendance (child_id, scan_time) VALUES (?, ?)";
                     PreparedStatement insertStmt = conn.prepareStatement(insertSql);
                     insertStmt.setInt(1, childId);
                     insertStmt.setObject(2, LocalDateTime.now());
                     insertStmt.executeUpdate();
 
+                    // 🔥 2. Update attendance_status (for pie chart and reports)
+                    String statusSql = """
+                        REPLACE INTO attendance_status 
+                        (child_id, date, is_present, reason, scan_time)
+                        VALUES (?, CURDATE(), 1, '', NOW())
+                        """;
+                    PreparedStatement statusStmt = conn.prepareStatement(statusSql);
+                    statusStmt.setInt(1, childId);
+                    statusStmt.executeUpdate();
+
                     System.out.println("✅ Attendance recorded for: " + childName);
 
+                    // ✅ Update UI and chart
                     Platform.runLater(() -> {
                         Alert alert = new Alert(Alert.AlertType.INFORMATION);
                         alert.setTitle("Scan Successful");
@@ -164,7 +142,11 @@ public class NFCReader implements Runnable {
                         alert.showAndWait();
                     });
 
+                    // ✅ Update all data views
                     AdminDashboard.updateDashboardData();
+                    AttendanceView.markPresentByChildId(childId); // will tick the box
+                    AttendanceView.updateChartFromStatic();  // updates the chart
+                    AttendanceView.refreshUI();
 
                 } else {
                     System.out.println("⚠️ Duplicate tap ignored: " + childName);
@@ -184,6 +166,7 @@ public class NFCReader implements Runnable {
                     AdminDashboard.promptRegisterCard(tagId);
                 });
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
