@@ -163,7 +163,7 @@ public class NFCReader implements Runnable {
             } else {
                 System.out.println("❌ Unknown card.");
                 Platform.runLater(() -> {
-                    AdminDashboard.promptRegisterCard(tagId);
+                    //AdminDashboard.promptRegisterCard(tagId);
                 });
             }
 

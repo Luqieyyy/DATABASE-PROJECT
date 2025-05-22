@@ -5,6 +5,7 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -20,14 +21,15 @@ import javafx.util.Duration;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-
+import nfc.ChildrenView;
+import nfc.StaffManagementView;
 public class AdminDashboard extends Application {
 
     private static AdminDashboard instance;
     private Label mainContent;
     private static Label scannedToday;
     private static Label notScanned;
-    private static ListView<String> liveScans;
+    private static ListView<String> liveIns, liveOuts;
     private static boolean dashboardReady = false;
     private StackPane contentPane;
     private static NFCReader reader;
@@ -83,7 +85,7 @@ public class AdminDashboard extends Application {
     private void startAutoRefresh() {
         Timeline autoRefreshTimeline = new Timeline(
             new KeyFrame(Duration.seconds(5), e -> {
-                if (scannedToday != null && notScanned != null && liveScans != null) {
+                if (scannedToday != null && notScanned != null && liveIns != null && liveOuts != null) {
                     updateStatistics();
                     updateLiveScans();
                 }
@@ -95,14 +97,18 @@ public class AdminDashboard extends Application {
 
 
     private HBox createTopBar(Stage primaryStage) {
-        HBox topBar = new HBox(10);
-        topBar.setPadding(new Insets(5, 10, 10, 10));
-        topBar.setAlignment(Pos.CENTER_RIGHT);
-        topBar.setStyle("-fx-background-color: transparent;");
+        // 1) Application title on the left
+        Label title = new Label("Taska Attendance System");
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
 
+        // 2) Spacer pushes window‐control buttons to the right
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        // 3) Window buttons
         Button minimizeButton = new Button("-");
         Button maximizeButton = new Button("⬜");
-        Button closeButton = new Button("X");
+        Button closeButton    = new Button("X");
 
         minimizeButton.getStyleClass().add("window-button");
         maximizeButton.getStyleClass().add("window-button");
@@ -110,17 +116,21 @@ public class AdminDashboard extends Application {
 
         minimizeButton.setOnAction(e -> primaryStage.setIconified(true));
         maximizeButton.setOnAction(e -> primaryStage.setMaximized(!primaryStage.isMaximized()));
-        closeButton.setOnAction(event -> {
+        closeButton.setOnAction(e -> {
             System.out.println("👋 Closing application, releasing Serial Port...");
-            if (reader != null) {
-                reader.stopReading();  // ✅ This must stop the Thread!
-            }
+            if (reader != null) reader.stopReading();
             System.exit(0);
         });
 
-        topBar.getChildren().addAll(minimizeButton, maximizeButton, closeButton);
+        // 4) Assemble the top bar
+        HBox topBar = new HBox(10, title, spacer, minimizeButton, maximizeButton, closeButton);
+        topBar.setPadding(new Insets(5, 10, 5, 10));
+        topBar.setAlignment(Pos.CENTER_LEFT);
+        topBar.setStyle("-fx-background-color: linear-gradient(to right, #00c6ff, #0072ff);");
+
         return topBar;
     }
+
 
     private HBox createBodyLayout(Stage primaryStage) {
         HBox bodyLayout = new HBox();
@@ -153,7 +163,7 @@ public class AdminDashboard extends Application {
         profilePic.setFitWidth(100);
         profilePic.setFitHeight(130);
 
-        Label nameLabel = new Label("Welcome, " + AdminModel.getName());
+        Label nameLabel = new Label("" + AdminModel.getName());
         VBox profileBox = new VBox(10, profilePic, nameLabel);
         profileBox.setAlignment(Pos.CENTER);
 
@@ -171,8 +181,15 @@ public class AdminDashboard extends Application {
         });
 
 
-        btnChildren.setOnAction(e -> setMainContent(new Label("🧒 Children & Parents Section")));
-        btnStaff.setOnAction(e -> setMainContent(new Label("👩‍🏫 Staff Management Section")));
+        btnChildren.setOnAction(e -> {
+            ChildrenView childrenPane = new ChildrenView();
+            setMainContent(childrenPane);
+        });
+
+        btnStaff.setOnAction(e -> {
+            StaffManagementView staffPane = new StaffManagementView();
+            setMainContent(staffPane);
+        });
         btnLogout.setOnAction(event -> {
             System.out.println("👋 Closing application, releasing Serial Port...");
             if (reader != null) {
@@ -278,10 +295,18 @@ public class AdminDashboard extends Application {
         HBox.setHgrow(statsBox.getChildren().get(1), Priority.ALWAYS);
         statsBox.setAlignment(Pos.TOP_CENTER);
 
-        liveScans = new ListView<>();
-        liveScans.setPrefHeight(100);
+        liveIns  = new ListView<>(); liveIns.setPrefHeight(100);
+        liveOuts = new ListView<>(); liveOuts.setPrefHeight(100);
         updateLiveScans();
 
+        VBox inBox  = new VBox(new Label("Check-Ins"), liveIns);
+        VBox outBox = new VBox(new Label("Check-Outs"), liveOuts);
+        inBox.setMaxWidth(300);
+        outBox.setMaxWidth(300);
+        HBox livePane = new HBox(50, inBox, outBox);
+        livePane.setAlignment(Pos.CENTER);
+        livePane.setMaxWidth(Double.MAX_VALUE);
+        
         Label announcementTitle = new Label("Announcements");
         announcementTitle.setAlignment(Pos.CENTER);
         announcementTitle.setMaxWidth(Double.MAX_VALUE);
@@ -298,7 +323,7 @@ public class AdminDashboard extends Application {
             topRow,
             statsBox,
             new Separator(),
-            liveScans,
+            livePane,
             new Separator(),
             announcementArea
         );
@@ -328,23 +353,49 @@ public class AdminDashboard extends Application {
     }
 
     public static void updateLiveScans() {
-        Platform.runLater(() -> {
-            try (Connection conn = DatabaseConnection.getConnection()) {
-                String query = "SELECT TIME(scan_time), name FROM attendance JOIN children ON attendance.child_id = children.id WHERE DATE(scan_time) = CURDATE() ORDER BY scan_time DESC";
-                PreparedStatement stmt = conn.prepareStatement(query);
-                ResultSet rs = stmt.executeQuery();
+    	  Platform.runLater(() -> {
+    	    try (Connection conn = DatabaseConnection.getConnection()) {
+    	      // 1) Check-Ins
+    	      String inSql = """
+    	        SELECT TIME(a.scan_time) AS tm, c.name
+    	          FROM attendance a
+    	          JOIN children  c ON a.child_id = c.id
+    	         WHERE DATE(a.scan_time)=CURDATE() AND a.scan_type='IN'
+    	         ORDER BY a.scan_time DESC
+    	      """;
+    	      ObservableList<String> ins = FXCollections.observableArrayList();
+    	      try (ResultSet rs = conn.createStatement().executeQuery(inSql)) {
+    	        while (rs.next()) {
+    	          ins.add(rs.getString("tm") + " – " + rs.getString("name"));
+    	        }
+    	      }
+    	      liveIns.setItems(ins);
 
-                ObservableList<String> newList = javafx.collections.FXCollections.observableArrayList();
-                while (rs.next()) newList.add(rs.getString(1) + " - " + rs.getString(2));
+    	      // 2) Check-Outs
+    	      String outSql = """
+    	        SELECT TIME(a.scan_time) AS tm, c.name
+    	          FROM attendance a
+    	          JOIN children  c ON a.child_id = c.id
+    	         WHERE DATE(a.scan_time)=CURDATE() AND a.scan_type='OUT'
+    	         ORDER BY a.scan_time DESC
+    	      """;
+    	      ObservableList<String> outs = FXCollections.observableArrayList();
+    	      try (ResultSet rs = conn.createStatement().executeQuery(outSql)) {
+    	        while (rs.next()) {
+    	          outs.add(rs.getString("tm") + " – " + rs.getString("name"));
+    	        }
+    	      }
+    	      liveOuts.setItems(outs);
 
-                if (!liveScans.getItems().equals(newList)) {
-                    liveScans.setItems(newList);
-                }
-            } catch (Exception e) {
-                liveScans.getItems().add("Unable to load scan data.");
-            }
-        });
-    }
+    	    } catch (Exception ex) {
+    	      liveIns .getItems().setAll("Error loading");
+    	      liveOuts.getItems().setAll("Error loading");
+    	      ex.printStackTrace();
+    	    }
+    	  });
+    	}
+
+
  // ✅ Add this
     public static void updateDashboardData() {
         Platform.runLater(() -> {
@@ -403,7 +454,7 @@ public class AdminDashboard extends Application {
 
 
     // ✅ Add this
-    public static void promptRegisterCard(String tagId) {
+    /*public static void promptRegisterCard(String tagId) {
         Platform.runLater(() -> {
             Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
             alert.setTitle("Unknown Card Detected");
@@ -423,7 +474,6 @@ public class AdminDashboard extends Application {
             });
 
         });
-    }
-    
+    }*/    
 
 }

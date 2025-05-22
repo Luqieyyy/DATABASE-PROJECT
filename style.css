@@ -9,6 +9,17 @@
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 5, 0, 0, 2);
 }
 
+
+.button-birulawa1 {
+    -fx-background-color: linear-gradient(to right, #36D1DC, #5B86E5);
+    -fx-text-fill: black;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-background-radius: 10;
+    -fx-padding: 8 15;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 5, 0, 0, 2);
+}
 .button-birulawa:hover {
     -fx-background-color: #2e7dff;
 }
@@ -110,3 +121,42 @@
 		  -fx-cursor: hand;
 		  -fx-font-weight: bold;
 }
+
+/* -------------------------------------------------------------------
+   HEADER BAR with gradient background
+   ------------------------------------------------------------------- */
+.header-bar {
+    -fx-background-color: linear-gradient(to right, #36D1DC, #5B86E5);
+    -fx-padding: 30 20;
+    -fx-alignment: center;
+}
+
+/* Big white title text */
+.header-title {
+    -fx-font-size: 32px;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 5 0;
+}
+
+/* Smaller subtitle under the main title */
+.header-subtitle {
+    -fx-font-size: 16px;
+    -fx-text-fill: white;
+    -fx-font-style: italic;
+}
+
+/* Center the whole login pane and give it a light grey background */
+.login-root {
+    -fx-background-color:
+        linear-gradient(
+            to bottom,
+            #FFE082 0%,
+            #FFD54F 50%,
+            #FFB300 100%
+        );
+}
+
+
+
+

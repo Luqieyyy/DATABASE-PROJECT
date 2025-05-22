@@ -9,6 +9,14 @@ public class AttendanceRecord {
     private final StringProperty reason = new SimpleStringProperty("");
     private final StringProperty customReason = new SimpleStringProperty("");
     private final SimpleStringProperty scanTime = new SimpleStringProperty("");
+    private final StringProperty checkInTime  = new SimpleStringProperty("");
+    private final StringProperty checkOutTime = new SimpleStringProperty("");
+    public StringProperty checkInTimeProperty()  { return checkInTime;  }
+    public StringProperty checkOutTimeProperty() { return checkOutTime; }
+    public String getCheckInTime()  { return checkInTime.get();  }
+    public String getCheckOutTime() { return checkOutTime.get(); }
+    public void setCheckInTime(String t)  { checkInTime.set(t==null?"":t);  }
+    public void setCheckOutTime(String t) { checkOutTime.set(t==null?"":t); }
 
     
     public AttendanceRecord(int childId, String name) {

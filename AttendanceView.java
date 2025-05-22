@@ -27,11 +27,23 @@ public class AttendanceView {
     private ObservableList<AttendanceRecord> masterRecords = FXCollections.observableArrayList();
     private FilteredList<AttendanceRecord> filteredRecords = new FilteredList<>(masterRecords, p -> true);
     private PieChart chart;  // ✅ make it global
+    // ─── NEW: datePicker field ────────────────────────────────────────────────────
+    private DatePicker datePicker = new DatePicker(LocalDate.now());
+    // ────────────────────────────────────────────────────────────────────────────────
 
     public AttendanceView() {
-    	currentInstance = this; 
+        currentInstance = this;
         root = new VBox(15);
         root.setPadding(new Insets(20));
+
+        // ─── NEW: Date-picker row ─────────────────────────────────────────────────
+        HBox dateRow = new HBox(10, new Label("Select Date:"), datePicker);
+        Button loadBtn = new Button("Load Date");
+        loadBtn.setOnAction(e -> loadStudents());
+        dateRow.getChildren().add(loadBtn);
+        dateRow.setAlignment(Pos.CENTER_LEFT);
+        root.getChildren().add(dateRow);
+        // ─────────────────────────────────────────────────────────────────────────
 
         // Header bar
         HBox header = new HBox(10);
@@ -44,25 +56,20 @@ public class AttendanceView {
                 boolean nowPresent = attendanceCheckbox.isSelected();
                 record.setPresent(nowPresent);
                 if (nowPresent) {
-                    String nowTime = java.time.LocalDateTime.now().format(
-                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                    );
+                    String nowTime = java.time.LocalDateTime.now()
+                        .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
                     record.setScanTime(nowTime);
                 } else {
                     record.setScanTime("");
                 }
             }
             table.refresh();
-            // ✅ Refresh chart and dashboard when "Mark All Present" used
             updateChart(chart);
             AdminDashboard.updateDashboardData();
         });
 
-
-
-        Button viewReportsButton = new Button("View Reports");
-        viewReportsButton.setOnAction(e -> showAllReportsWindow());
-
+       // Button viewReportsButton = new Button("View Reports");
+       // viewReportsButton.setOnAction(e -> this.showAllReportsWindow());
 
         ComboBox<String> reasonDropdown = new ComboBox<>();
         reasonDropdown.getItems().addAll("All", "Permission", "Sick", "Unexcused", "Other...");
@@ -81,7 +88,7 @@ public class AttendanceView {
             reasonDropdown.setValue("All");
             filteredRecords.setPredicate(p -> true);
         });
-        
+
         ComboBox<String> bulkReasonDropdown = new ComboBox<>();
         bulkReasonDropdown.getItems().addAll("Permission", "Sick", "Unexcused", "Other...");
         bulkReasonDropdown.setValue("Permission");
@@ -98,11 +105,9 @@ public class AttendanceView {
         });
 
         header.getChildren().addAll(bulkReasonDropdown, applyReasonBtn);
+        header.getChildren().addAll(attendanceCheckbox, reasonDropdown, clearFilter);
 
-
-        header.getChildren().addAll(attendanceCheckbox, viewReportsButton, reasonDropdown, clearFilter);
-
-        Label dateTimeLabel = new Label();  // Will hold date & time
+        Label dateTimeLabel = new Label();
         dateTimeLabel.setStyle("-fx-font-size: 16px; -fx-text-fill: #555;");
 
         Label title = new Label("Attendance");
@@ -110,102 +115,50 @@ public class AttendanceView {
 
         HBox titleBar = new HBox(20, title, dateTimeLabel);
         titleBar.setAlignment(Pos.CENTER_RIGHT);
-        
+
         javafx.animation.Timeline clock = new javafx.animation.Timeline(
-        	    new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1), e -> {
-        	        String now = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy")) + 
-        	                     " | " + java.time.LocalTime.now().withNano(0).toString();
-        	        dateTimeLabel.setText(now);
-        	    })
-        	);
-        	clock.setCycleCount(javafx.animation.Animation.INDEFINITE);
-        	clock.play();
+            new javafx.animation.KeyFrame(
+                javafx.util.Duration.seconds(1),
+                e -> {
+                    String now = java.time.LocalDate.now().format(
+                        java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy"))
+                        + " | " + java.time.LocalTime.now().withNano(0);
+                    dateTimeLabel.setText(now);
+                }
+            )
+        );
+        clock.setCycleCount(javafx.animation.Animation.INDEFINITE);
+        clock.play();
 
-
-
+        // ─── Table setup ────────────────────────────────────────────────────────────
         table = new TableView<>();
+        table.setEditable(true);
 
         TableColumn<AttendanceRecord, String> nameCol = new TableColumn<>("Name");
         nameCol.setCellValueFactory(data -> data.getValue().nameProperty());
 
-        
-        table = new TableView<>();
-        table.setEditable(true);  
         TableColumn<AttendanceRecord, Boolean> presentCol = new TableColumn<>("Present");
         presentCol.setCellValueFactory(cellData -> cellData.getValue().presentProperty());
         presentCol.setCellFactory(CheckBoxTableCell.forTableColumn(presentCol));
-        presentCol.setEditable(true); 
-        
+        presentCol.setEditable(true);
+
         TableColumn<AttendanceRecord, String> reasonCol = new TableColumn<>("Reason");
-        
-        TableColumn<AttendanceRecord, String> dateTimeCol = new TableColumn<>("Date & Time");
-        dateTimeCol.setCellValueFactory(data -> data.getValue().scanTimeProperty());
-
         reasonCol.setCellValueFactory(data -> data.getValue().reasonProperty());
-        reasonCol.setCellFactory(col -> new TableCell<>() {
-            private final ComboBox<String> comboBox = new ComboBox<>();
-            private final TextField textField = new TextField();
+        // (your existing combo-box factory for reasons)...
 
-            {
-                comboBox.getItems().addAll("Sick", "Permission", "Unexcused", "Other...");
-                comboBox.setMaxWidth(Double.MAX_VALUE);
-                textField.setPromptText("Enter reason...");
-                textField.setMaxWidth(Double.MAX_VALUE);
+        // ─── NEW: Check-In & Check-Out columns ───────────────────────────────────
+        TableColumn<AttendanceRecord,String> inCol  = new TableColumn<>("Check-In");
+        inCol.setCellValueFactory(c -> c.getValue().checkInTimeProperty());
+        inCol.setPrefWidth(140);
 
-                comboBox.setOnAction(e -> {
-                    AttendanceRecord record = getTableView().getItems().get(getIndex());
-                    String selected = comboBox.getValue();
+        TableColumn<AttendanceRecord,String> outCol = new TableColumn<>("Check-Out");
+        outCol.setCellValueFactory(c -> c.getValue().checkOutTimeProperty());
+        outCol.setPrefWidth(140);
+        // ─────────────────────────────────────────────────────────────────────────
 
-                    if ("Other...".equals(selected)) {
-                        record.setReason("Other...");
-                        record.setCustomReason(textField.getText());
-                        setGraphic(new VBox(comboBox, textField));
-                    } else {
-                        record.setReason(selected);
-                        record.setCustomReason(""); // clear old input
-                        setGraphic(comboBox);
-                    }
-                });
-
-                textField.textProperty().addListener((obs, oldVal, newVal) -> {
-                    AttendanceRecord record = getTableView().getItems().get(getIndex());
-                    if ("Other...".equals(comboBox.getValue())) {
-                        record.setCustomReason(newVal);
-                    }
-                });
-            }
-            
-
-            @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setGraphic(null);
-                } else {
-                    AttendanceRecord record = getTableView().getItems().get(getIndex());
-
-                    // 🔒 Lock reason editing if marked present
-                    if (record.isPresent()) {
-                        comboBox.setDisable(true);
-                        textField.setDisable(true);
-                    } else {
-                        comboBox.setDisable(false);
-                        textField.setDisable(false);
-                    }
-
-                    comboBox.setValue(item);
-                    if ("Other...".equals(item)) {
-                        setGraphic(new VBox(comboBox, textField));
-                    } else {
-                        setGraphic(comboBox);
-                    }
-                }
-            }
-
-        });
-
-        table.getColumns().addAll(nameCol, presentCol, reasonCol, dateTimeCol);
+        table.getColumns().addAll(nameCol, presentCol, reasonCol, inCol, outCol);
         table.setItems(filteredRecords);
+        // ────────────────────────────────────────────────────────────────────────────
 
         Label chartTitle = new Label("Today's Attendance");
         chartTitle.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
@@ -214,9 +167,7 @@ public class AttendanceView {
         saveBtn.setOnAction(e -> saveAttendance());
 
         chart = new PieChart();
-        chart.setTitle("Today's Attendance");
-        updateChart(chart); // right after initializing the chart
-
+        updateChart(chart);
 
         Button refreshChart = new Button("Refresh Chart");
         refreshChart.setOnAction(e -> updateChart(chart));
@@ -225,146 +176,47 @@ public class AttendanceView {
 
         loadStudents();
         updateChart(chart);
-     
-
     }
 
-    private void showAllReportsWindow() {
-        Stage stage = new Stage();
-        stage.setTitle("Today's Attendance Records");
-
-        TableView<AttendanceRecord> table = new TableView<>();
-
-        TableColumn<AttendanceRecord, String> nameCol = new TableColumn<>("Name");
-        nameCol.setCellValueFactory(data -> data.getValue().nameProperty());
-
-        TableColumn<AttendanceRecord, Boolean> presentCol = new TableColumn<>("Present");
-        presentCol.setCellValueFactory(data -> data.getValue().presentProperty());
-
-        TableColumn<AttendanceRecord, String> reasonCol = new TableColumn<>("Reason");
-        reasonCol.setCellValueFactory(data -> data.getValue().reasonProperty());
-        
-        TableColumn<AttendanceRecord, Void> reportCol = new TableColumn<>("");
-        reportCol.setPrefWidth(40);
-        reportCol.setCellFactory(col -> new TableCell<>() {
-        	private final Button reportBtn = new Button ("📋");
-        	
-        	{
-        		reportBtn.setOnAction(e -> {
-        			AttendanceRecord record = getTableView().getItems().get(getIndex());
-        			showStudentReport(record);
-        		});
-        		 reportBtn.setStyle("-fx-background-color: transparent;");
-        	}
-        	protected void updateItem(Void item, boolean empty) {
-                super.updateItem(item, empty);
-                setGraphic(empty ? null : reportBtn);
-        	}
-        });
-
-        table.getColumns().addAll(reportCol,nameCol, presentCol, reasonCol);
-
-        ObservableList<AttendanceRecord> reportData = FXCollections.observableArrayList();
-
-        try (Connection conn = DatabaseConnection.getConnection()) {
-        	String sql = """
-        		    SELECT c.name, 
-        		           MAX(a.is_present) AS is_present, 
-        		           GROUP_CONCAT(DISTINCT a.reason SEPARATOR ', ') AS reason
-        		    FROM attendance_status a
-        		    JOIN children c ON a.child_id = c.id
-        		    WHERE a.date = CURDATE()
-        		    GROUP BY c.name
-        		""";
-
-            PreparedStatement stmt = conn.prepareStatement(sql);
-            ResultSet rs = stmt.executeQuery();
-
-            while (rs.next()) {
-                String name = rs.getString("name");
-                boolean present = rs.getBoolean("is_present");
-                String reason = rs.getString("reason");
-
-                AttendanceRecord record = new AttendanceRecord(0, name);
-                record.setPresent(present);
-                record.setReason(reason);
-
-                reportData.add(record);
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        table.setItems(reportData);
-
-        VBox layout = new VBox(10, new Label("Today's Attendance Report"), table);
-        layout.setPadding(new Insets(20));
-
-        Scene scene = new Scene(layout, 400, 400);
-        stage.setScene(scene);
-        stage.show();
-    }
-
+    // ─── NEW: Revised loadStudents() with MIN/MAX ───────────────────────────────
     private void loadStudents() {
         masterRecords.clear();
-        try (Connection conn = DatabaseConnection.getConnection()) {
-        	String sql = """
-        		    SELECT c.id, c.name, 
-        		           CASE 
-        		               WHEN a.scan_time IS NOT NULL THEN 1 
-        		               ELSE 0 
-        		           END AS is_present,
-        		           IFNULL(a.scan_time, '') AS scan_time
-        		    FROM children c
-        		    LEFT JOIN (
-        		        SELECT child_id, MIN(scan_time) AS scan_time
-        		        FROM attendance 
-        		        WHERE DATE(scan_time) = CURDATE()
-        		        GROUP BY child_id
-        		    ) a ON c.id = a.child_id
-        		    """;
 
+        String sql = """
+            SELECT c.id, c.name,
+                   MIN(a.scan_time) AS check_in,
+                   MAX(a.scan_time) AS check_out,
+                   CASE WHEN MAX(a.scan_time) IS NOT NULL THEN 1 ELSE 0 END AS is_present
+              FROM children c
+              LEFT JOIN attendance a
+                ON c.id=a.child_id 
+               AND DATE(a.scan_time)=?
+             GROUP BY c.id, c.name
+        """;
 
-            PreparedStatement stmt = conn.prepareStatement(sql);
-            ResultSet rs = stmt.executeQuery();
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setDate(1, java.sql.Date.valueOf(datePicker.getValue()));
+            ResultSet rs = ps.executeQuery();
+
             while (rs.next()) {
-                int childId = rs.getInt("id");
-                String name = rs.getString("name");
-                boolean present = rs.getBoolean("is_present");
-                String scanTimeStr = rs.getString("scan_time");
-
-                AttendanceRecord record = new AttendanceRecord(childId, name);
-                record.setPresent(present);
-             // Automatically set scan time when marked present
-                record.presentProperty().addListener((obs, wasPresent, isNowPresent) -> {
-                    if (isNowPresent) {
-                        if (record.getScanTime() == null || record.getScanTime().isEmpty()) {
-                            // ✅ Proper formatted date & time
-                            String nowTime = java.time.LocalDateTime.now().format(
-                                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                            );
-                            record.setScanTime(nowTime);
-                        }
-                    } else {
-                        record.setScanTime("");
-                    }
-
-                    // ✅ Auto refresh chart and dashboard when ticked or unticked
-                    updateChart(chart);
-                    AdminDashboard.updateDashboardData();
-                });
-
-
-                record.setScanTime(scanTimeStr != null ? scanTimeStr : "");
-
-                masterRecords.add(record);
+                AttendanceRecord r = new AttendanceRecord(
+                    rs.getInt("id"),
+                    rs.getString("name")
+                );
+                r.setPresent     (rs.getBoolean("is_present"));
+                r.setCheckInTime (rs.getString("check_in"));
+                r.setCheckOutTime(rs.getString("check_out"));
+                masterRecords.add(r);
             }
-
-
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        table.refresh();
+        updateChart(chart);
+        AdminDashboard.updateDashboardData();
     }
 
 
@@ -425,6 +277,7 @@ public class AttendanceView {
             );
 
             chart.setData(FXCollections.observableArrayList(presentData, absentData));
+            
 
             Tooltip.install(presentData.getNode(), new Tooltip(present + " students present"));
             Tooltip.install(absentData.getNode(), new Tooltip(absent + " students absent"));

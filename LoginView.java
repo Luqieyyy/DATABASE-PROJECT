@@ -7,6 +7,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
@@ -16,25 +17,35 @@ import java.sql.ResultSet;
 
 public class LoginView extends Application {
 
-	private ImageView profileImageView;
+    private ImageView profileImageView;
+
+    @Override
     public void start(Stage primaryStage) {
         primaryStage.setTitle("Taska Attendance System");
 
-        //Profile Picture section
+        // Profile Picture section
         profileImageView = new ImageView();
         profileImageView.setFitWidth(100);
         profileImageView.setFitHeight(100);
         profileImageView.setPreserveRatio(true);
         profileImageView.setStyle("-fx-border-color: #ccc; -fx-border-width: 2px;");
         setDefaultProfileImage();
-       
-        
-        // Title
-        Label title = new Label("Taska Attendance System\n   \t\tAdmin");
-        title.setStyle("-fx-font-size: 20px; -fx-text-fill: black;");
-        
-  
-        // Username Input
+
+        // 1) Build header (gradient bar + titles)
+        Label mainTitle = new Label("WELCOME TO TASKA ATTENDANCE SYSTEM!");
+        mainTitle.getStyleClass().add("header-title");
+
+        Label subTitle = new Label("Children are our most valuable resource.");
+        subTitle.getStyleClass().add("header-subtitle");
+
+        VBox titleBox = new VBox(5, mainTitle, subTitle);
+        titleBox.setAlignment(Pos.CENTER);
+
+        HBox headerBar = new HBox(titleBox);
+        headerBar.getStyleClass().add("header-bar");
+        headerBar.setMaxWidth(Double.MAX_VALUE);
+
+        // 2) Username Input
         Label usernameLabel = new Label("Username");
         TextField usernameField = new TextField();
         usernameField.setPromptText("Enter username");
@@ -42,26 +53,24 @@ public class LoginView extends Application {
 
         // Password Input
         Label passwordLabel = new Label("Password");
-        PasswordField passwordField = new PasswordField(); // fixed here
+        PasswordField passwordField = new PasswordField();
         passwordField.setPromptText("Enter password");
         passwordField.setPrefWidth(20);
 
-        //HBox
-        VBox inputBox = new VBox(20);
+        VBox usernameBox = new VBox(5, usernameLabel, usernameField);
+        VBox passwordBox = new VBox(5, passwordLabel, passwordField);
+
+        VBox inputBox = new VBox(20, usernameBox, passwordBox);
         inputBox.setAlignment(Pos.CENTER);
-        inputBox.setMaxWidth(250); 
-        
-        //Create VBox 
-        VBox usernameBox = new VBox (5,usernameLabel, usernameField);
-        VBox passwordBox = new VBox (5,passwordLabel, passwordField);
-        inputBox.getChildren().addAll(usernameBox, passwordBox);
-        
+        inputBox.setMaxWidth(250);
+
         // Message label
         Label messageLabel = new Label();
 
         // Login Button
         Button loginButton = new Button("Login");
         loginButton.setDefaultButton(true);
+        loginButton.getStyleClass().add("button-birulawa");
         loginButton.setOnAction(e -> {
             String username = usernameField.getText().trim();
             String password = passwordField.getText().trim();
@@ -74,21 +83,14 @@ public class LoginView extends Application {
 
                 ResultSet rs = stmt.executeQuery();
                 if (rs.next()) {
-                 
-                    
                     AdminModel.setName(rs.getString("name"));
                     AdminModel.setProfilePicture(rs.getString("profile_picture"));
                     messageLabel.setText("Login Successful!");
-                
-                    System.out.println("🧠 AdminModel.getName(): " + AdminModel.getName());
-                    System.out.println("🧠 AdminModel.getProfilePicture(): " + AdminModel.getProfilePicture());
-                    
-                    // Load dashboard
+
                     AdminDashboard dashboard = new AdminDashboard();
                     Stage dashboardStage = new Stage();
                     dashboard.start(dashboardStage);
 
-                    // Close login window
                     ((Stage) loginButton.getScene().getWindow()).close();
                 } else {
                     messageLabel.setText("Invalid Credentials.");
@@ -111,40 +113,49 @@ public class LoginView extends Application {
             alert.showAndWait();
         });
 
-        // Layout
-        VBox layout = new VBox(10);
-        layout.setPadding(new Insets(20));
-        layout.setAlignment(Pos.TOP_CENTER);
-        layout.getStyleClass().add("layout-setStyle");
-        layout.getChildren().addAll(
-        		profileImageView,
-                title,
-                inputBox,
-                loginButton,
-                messageLabel,
-                forgotPassword
+        // Assemble root layout
+        VBox root = new VBox(20,
+            headerBar,
+            profileImageView,
+            inputBox,
+            loginButton,
+            messageLabel,
+            forgotPassword
         );
+     // remove the old “layout-setStyle” entirely…
+        root.getStyleClass().removeAll("layout-setStyle");
+        // …and add our new gradient class
+        root.getStyleClass().add("layout-setStyle");
 
-        Scene scene = new Scene(layout, 400, 450);
+        root.setAlignment(Pos.TOP_CENTER);
+        root.setPadding(new Insets(20));
+
+        Scene scene = new Scene(root, 1000, 800);
         scene.getStylesheets().add(getClass().getResource("/nfc/style.css").toExternalForm());
         primaryStage.setScene(scene);
         primaryStage.show();
     }
+
     private void setDefaultProfileImage() {
-        var imageUrl = getClass().getResource("/nfc/user.jpg");
+        var imageUrl = getClass().getResource("/nfc/children.jpg");
         if (imageUrl == null) {
             System.out.println("❌ Image not found!");
             return;
-        } else {
-            System.out.println("✅ Image found at: " + imageUrl);
         }
         Image defaultImage = new Image(imageUrl.toExternalForm());
         profileImageView.setImage(defaultImage);
+
+        // 👉 Tweak these two values until it’s the size you like:
+        profileImageView.setFitWidth(200);
+        profileImageView.setFitHeight(200);
+
+        // Keep the picture from stretching if its aspect ratio differs
+        profileImageView.setPreserveRatio(true);
+        profileImageView.setSmooth(true);
     }
 
 
     public static void main(String[] args) {
         launch(args);
-
     }
 }
