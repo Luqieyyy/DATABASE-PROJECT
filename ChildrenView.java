@@ -26,11 +26,11 @@ public class ChildrenView extends VBox {
         title.setPadding(new Insets(0, 0, 10, 0));
         setSpacing(10);
         setPadding(new Insets(20));
-        setAlignment(Pos.TOP_CENTER);
+        setAlignment(Pos.TOP_LEFT);
     	
         setSpacing(10);
         setPadding(new Insets(20));
-        setAlignment(Pos.TOP_CENTER);
+        setAlignment(Pos.TOP_LEFT);
 
         buildTable();
 

@@ -146,15 +146,29 @@
     -fx-font-style: italic;
 }
 
-/* Center the whole login pane and give it a light grey background */
-.login-root {
-    -fx-background-color:
-        linear-gradient(
-            to bottom,
-            #FFE082 0%,
-            #FFD54F 50%,
-            #FFB300 100%
-        );
+/* apply to both TextField and PasswordField */
+.custom-input {
+  -fx-background-color: white ;
+  -fx-background-radius: 8px;
+  -fx-border-radius: 8px;
+  -fx-border-color: #ccc;
+  -fx-border-width: 1px;
+  -fx-padding: 4px 8px;
+}
+
+/* focus state */
+.custom-input:focused {
+  -fx-border-color: #FFA000;
+  -fx-border-width: 2px;
+}
+
+/* prompt text color */
+.custom-input .text {
+  -fx-fill: #333;
+}
+.custom-input .prompt-text {
+  -fx-fill: derive(-fx-control-inner-background, -30%);
+}
 }
 
 

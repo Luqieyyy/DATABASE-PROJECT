@@ -12,12 +12,18 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.util.Duration;
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 public class AttendanceView {
 
@@ -33,18 +39,56 @@ public class AttendanceView {
 
     public AttendanceView() {
         currentInstance = this;
-        root = new VBox(15);
+        root = new VBox(10);
         root.setPadding(new Insets(20));
 
-        // ─── NEW: Date-picker row ─────────────────────────────────────────────────
-        HBox dateRow = new HBox(10, new Label("Select Date:"), datePicker);
+        // ─── 2) Create title + clock ───────────────────────────────────
+        Label title = new Label("Attendance");
+        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
+
+        Label clockLabel = new Label();
+        clockLabel.setStyle("-fx-font-size: 16px; -fx-text-fill: #555;");
+
+        // start the clock
+        Timeline clock = new Timeline(
+          new KeyFrame(Duration.seconds(1), e -> {
+            String now = LocalDate.now().format(
+              DateTimeFormatter.ofPattern("dd MMM yyyy"))
+              + " | "
+              + LocalTime.now().withNano(0);
+            clockLabel.setText(now);
+          })
+        );
+        clock.setCycleCount(Animation.INDEFINITE);
+        clock.play();
+
+        // spacer to push clockLabel to the right
+        Region titleSpacer = new Region();
+        HBox.setHgrow(titleSpacer, Priority.ALWAYS);
+
+        HBox titleBar = new HBox(10, title, titleSpacer, clockLabel);
+        titleBar.setAlignment(Pos.CENTER_LEFT);
+        root.getChildren().add(titleBar);
+
+        // ─── 3) Create date‐picker row ───────────────────────────────────
+        DatePicker datePicker = new DatePicker(LocalDate.now());
         Button loadBtn = new Button("Load Date");
         loadBtn.setOnAction(e -> loadStudents());
-        dateRow.getChildren().add(loadBtn);
-        dateRow.setAlignment(Pos.CENTER_LEFT);
-        root.getChildren().add(dateRow);
-        // ─────────────────────────────────────────────────────────────────────────
 
+        // spacer to push date controls to the right
+        Region dateSpacer = new Region();
+        HBox.setHgrow(dateSpacer, Priority.ALWAYS);
+
+        HBox dateBar = new HBox(10,
+            new Label("Select Date:"),
+            datePicker,
+            loadBtn,
+            dateSpacer    // pushes everything left of it to the right edge
+        );
+        dateBar.setAlignment(Pos.CENTER_LEFT);
+        root.getChildren().add(dateBar);
+
+        
         // Header bar
         HBox header = new HBox(10);
         header.setPadding(new Insets(10));
@@ -89,11 +133,11 @@ public class AttendanceView {
             filteredRecords.setPredicate(p -> true);
         });
 
-        ComboBox<String> bulkReasonDropdown = new ComboBox<>();
+     /*   ComboBox<String> bulkReasonDropdown = new ComboBox<>();
         bulkReasonDropdown.getItems().addAll("Permission", "Sick", "Unexcused", "Other...");
         bulkReasonDropdown.setValue("Permission");
 
-        Button applyReasonBtn = new Button("Apply Reason");
+       /* Button applyReasonBtn = new Button("Apply Reason");
         applyReasonBtn.setOnAction(e -> {
             String selectedReason = bulkReasonDropdown.getValue();
             for (AttendanceRecord record : filteredRecords) {
@@ -102,33 +146,12 @@ public class AttendanceView {
                 }
             }
             table.refresh();
-        });
+        });*/
 
-        header.getChildren().addAll(bulkReasonDropdown, applyReasonBtn);
+     //   header.getChildren().addAll(bulkReasonDropdown);
         header.getChildren().addAll(attendanceCheckbox, reasonDropdown, clearFilter);
 
-        Label dateTimeLabel = new Label();
-        dateTimeLabel.setStyle("-fx-font-size: 16px; -fx-text-fill: #555;");
-
-        Label title = new Label("Attendance");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-
-        HBox titleBar = new HBox(20, title, dateTimeLabel);
-        titleBar.setAlignment(Pos.CENTER_RIGHT);
-
-        javafx.animation.Timeline clock = new javafx.animation.Timeline(
-            new javafx.animation.KeyFrame(
-                javafx.util.Duration.seconds(1),
-                e -> {
-                    String now = java.time.LocalDate.now().format(
-                        java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy"))
-                        + " | " + java.time.LocalTime.now().withNano(0);
-                    dateTimeLabel.setText(now);
-                }
-            )
-        );
-        clock.setCycleCount(javafx.animation.Animation.INDEFINITE);
-        clock.play();
+   
 
         // ─── Table setup ────────────────────────────────────────────────────────────
         table = new TableView<>();
@@ -172,7 +195,7 @@ public class AttendanceView {
         Button refreshChart = new Button("Refresh Chart");
         refreshChart.setOnAction(e -> updateChart(chart));
 
-        root.getChildren().addAll(titleBar, header, table, saveBtn, chartTitle, chart, refreshChart);
+        root.getChildren().addAll(header, table, saveBtn, chartTitle, chart, refreshChart);
 
         loadStudents();
         updateChart(chart);

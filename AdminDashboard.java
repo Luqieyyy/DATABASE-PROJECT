@@ -23,6 +23,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import nfc.ChildrenView;
 import nfc.StaffManagementView;
+import nfc.LoginView;
 public class AdminDashboard extends Application {
 
     private static AdminDashboard instance;
@@ -195,7 +196,13 @@ public class AdminDashboard extends Application {
             if (reader != null) {
                 reader.stopReading();  // ✅ This must stop the Thread!
             }
-            System.exit(0);
+            LoginView  loginView = new LoginView();
+            Stage loginStage = new Stage();
+            try {
+            	loginView.start(loginStage);
+            }catch(Exception ex) {
+            ex.printStackTrace();
+            }
         });
 
 
@@ -254,10 +261,10 @@ public class AdminDashboard extends Application {
 
 
     private void loadDashboardContent() {
-        Label title = new Label("Taska Attendance System");
-        title.setStyle("-fx-font-size: 30px; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 20px; -fx-background-radius: 50px;");
+        Label title = new Label("Dashboard");
+        title.setStyle("-fx-font-size: 30px; -fx-text-fill: white; -fx-padding: 20px; -fx-background-radius: 50px;");
         HBox titleBox = new HBox(title);
-        titleBox.setAlignment(Pos.CENTER);
+        titleBox.setAlignment(Pos.TOP_LEFT);
 
         VBox dashboardContent = new VBox(20);
         dashboardContent.setPadding(new Insets(20));
@@ -295,14 +302,24 @@ public class AdminDashboard extends Application {
         HBox.setHgrow(statsBox.getChildren().get(1), Priority.ALWAYS);
         statsBox.setAlignment(Pos.TOP_CENTER);
 
-        liveIns  = new ListView<>(); liveIns.setPrefHeight(100);
-        liveOuts = new ListView<>(); liveOuts.setPrefHeight(100);
+        liveIns  = new ListView<>(); 
+        liveIns.setPrefHeight(300);
+        liveIns.setPrefWidth(300);
+        liveOuts = new ListView<>(); 
+        liveOuts.setPrefHeight(300);
+        liveOuts.setPrefWidth(300);
         updateLiveScans();
 
         VBox inBox  = new VBox(new Label("Check-Ins"), liveIns);
         VBox outBox = new VBox(new Label("Check-Outs"), liveOuts);
-        inBox.setMaxWidth(300);
-        outBox.setMaxWidth(300);
+        inBox.setMinHeight(200);
+        inBox.setPrefHeight(200);
+        inBox.setMaxHeight(200);
+
+        outBox.setMinHeight(200);
+        outBox.setPrefHeight(200);
+        outBox.setMaxHeight(200);
+
         HBox livePane = new HBox(50, inBox, outBox);
         livePane.setAlignment(Pos.CENTER);
         livePane.setMaxWidth(Double.MAX_VALUE);
@@ -312,11 +329,18 @@ public class AdminDashboard extends Application {
         announcementTitle.setMaxWidth(Double.MAX_VALUE);
 
         TextArea announcementBox = new TextArea();
-        announcementBox.setPromptText("HARINI KITA MAKAN NASI AYAM");
+        announcementBox.setPromptText("Dear Bee Caliph Team,\r\n"
+        		+ "Here’s what’s coming up this week:\r\n"
+        		+ "• Monday: Staff meeting at 8:00 AM in the Teachers’ Lounge (Room 2)\r\n"
+        		+ "Please check the Staff Docs section for updated duty rosters and activity guides.");
         announcementBox.setWrapText(true);
-        announcementBox.setPrefHeight(200);
+        announcementBox.setPrefHeight(300);
+        announcementBox.setStyle("-fx-font-size: 20px; -fx-text-fill: white; -fx-font-weight: bold;");
 
         VBox announcementArea = new VBox(5, announcementTitle, announcementBox);
+        
+        Region flexibleSpacer = new Region();
+        VBox.setVgrow(flexibleSpacer, Priority.ALWAYS);
 
         dashboardContent.getChildren().addAll(
             titleBox,
@@ -325,6 +349,7 @@ public class AdminDashboard extends Application {
             new Separator(),
             livePane,
             new Separator(),
+            flexibleSpacer,
             announcementArea
         );
 
