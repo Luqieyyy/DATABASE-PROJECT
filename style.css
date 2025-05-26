@@ -146,15 +146,82 @@
     -fx-font-style: italic;
 }
 
-/* Center the whole login pane and give it a light grey background */
-.login-root {
-    -fx-background-color:
-        linear-gradient(
-            to bottom,
-            #FFE082 0%,
-            #FFD54F 50%,
-            #FFB300 100%
-        );
+/* apply to both TextField and PasswordField */
+.custom-input {
+  -fx-background-color: white ;
+  -fx-background-radius: 8px;
+  -fx-border-radius: 8px;
+  -fx-border-color: #ccc;
+  -fx-border-width: 1px;
+  -fx-padding: 4px 8px;
+}
+
+/* focus state */
+.custom-input:focused {
+  -fx-border-color: #FFA000;
+  -fx-border-width: 2px;
+}
+
+/* prompt text color */
+.custom-input .text {
+  -fx-fill: #333;
+}
+.custom-input .prompt-text {
+  -fx-fill: derive(-fx-control-inner-background, -30%);
+}
+
+.sidebar-btn {
+    -fx-background-color: #FFCB3C;
+    -fx-background-radius: 28px;
+    -fx-font-family: 'Poppins', Arial, sans-serif;
+    -fx-font-size: 16px;
+    -fx-font-weight: 500;
+    -fx-text-fill: #333;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(one-pass-box, rgba(0,0,0,0.05), 4, 0, 0, 2);
+    -fx-border-color: transparent;
+    -fx-padding: 0 22px 0 22px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-translate-x: 0;
+    -fx-transition: all 0.2s;
+}
+.sidebar-btn:hover {
+    -fx-background-color: #ffe28a;
+}
+.sidebar-btn-selected {
+    -fx-background-color: white;
+    -fx-text-fill: #222;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(one-pass-box, rgba(255, 220, 100, 0.1), 8, 0, 0, 2);
+}
+.check-box .box {
+    -fx-background-color: #FFCB3C;
+    -fx-border-color: #222;
+    -fx-border-width: 2;
+    -fx-background-radius: 2;
+}
+
+.check-box:selected .box {
+    -fx-background-color: #FFCB3C;
+    -fx-border-color: #222;
+}
+
+.check-box .mark {
+    -fx-background-color: transparent;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: #222;
+}
+.table-view .column-header-background {
+    -fx-background-color: #A2DB8E;
+}
+.table-view .column-header, .table-view .filler {
+    -fx-border-color: #FFCB3C;
+    -fx-border-width: 0 0 2px 0;
+}
+
+
 }
 
 

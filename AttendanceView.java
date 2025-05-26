@@ -2,6 +2,8 @@ package nfc;
 
 import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.chart.PieChart;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -11,13 +13,22 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import javafx.util.Duration;
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 public class AttendanceView {
 
@@ -33,24 +44,79 @@ public class AttendanceView {
 
     public AttendanceView() {
         currentInstance = this;
-        root = new VBox(15);
+        
+        HBox dashboardHeader = new HBox(18);
+        dashboardHeader.setAlignment(Pos.CENTER_LEFT);
+        dashboardHeader.setPrefHeight(70);
+        dashboardHeader.setMaxWidth(Double.MAX_VALUE); // Full width
+        dashboardHeader.setStyle(
+            "-fx-background-color: linear-gradient(to bottom, #FFD600 90%, #FFC107 100%);"
+            + "-fx-border-color: #f4b400; -fx-border-width: 0 0 3 0;"
+            + "-fx-background-image: repeating-linear-gradient(to bottom, transparent, transparent 12px, #FECF4D 12px, #FECF4D 15px);"
+        );
+        ImageView honeyPot = new ImageView(new Image(getClass().getResource("/nfc/hive2.png").toExternalForm()));
+        honeyPot.setFitWidth(54);
+        honeyPot.setFitHeight(54);
+
+        // Clock (put it to the far right)
+        Label clockLabel = new Label();
+        clockLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-padding: 0 16px;");
+        Timeline clock = new Timeline(
+            new KeyFrame(Duration.seconds(1), e -> {
+                String now = LocalDate.now().format(DateTimeFormatter.ofPattern("dd MMM yyyy"))
+                    + " | " + LocalTime.now().withNano(0);
+                clockLabel.setText(now);
+            })
+        );
+        clock.setCycleCount(Animation.INDEFINITE);
+        clock.play();
+
+        Label dashboardTitle = new Label("Attendance");
+        dashboardTitle.setFont(Font.font("Impact", FontWeight.EXTRA_BOLD, 44));
+        dashboardTitle.setTextFill(Color.web("#181818"));
+
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+
+        dashboardHeader.getChildren().addAll(honeyPot, dashboardTitle, headerSpacer, clockLabel);
+        
+        
+        root = new VBox(10);
         root.setPadding(new Insets(20));
 
-        // ─── NEW: Date-picker row ─────────────────────────────────────────────────
-        HBox dateRow = new HBox(10, new Label("Select Date:"), datePicker);
+       
+        // ─── 3) Create date‐picker row ───────────────────────────────────
+        DatePicker datePicker = new DatePicker(LocalDate.now());
         Button loadBtn = new Button("Load Date");
+        loadBtn.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
+        loadBtn.setPrefHeight(50);
         loadBtn.setOnAction(e -> loadStudents());
-        dateRow.getChildren().add(loadBtn);
-        dateRow.setAlignment(Pos.CENTER_LEFT);
-        root.getChildren().add(dateRow);
-        // ─────────────────────────────────────────────────────────────────────────
 
+        // spacer to push date controls to the right
+        Region dateSpacer = new Region();
+        HBox.setHgrow(dateSpacer, Priority.ALWAYS);
+
+        Label selectDateLabel = new Label("Select Date:");
+        selectDateLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");        
+        HBox dateBar = new HBox(10,
+            selectDateLabel,
+            datePicker,
+            loadBtn,
+            dateSpacer    // pushes everything left of it to the right edge
+        );
+        dateBar.setAlignment(Pos.CENTER_LEFT);
+        root.getChildren().add(dateBar);
+
+        
         // Header bar
         HBox header = new HBox(10);
         header.setPadding(new Insets(10));
         header.setAlignment(Pos.CENTER_RIGHT);
 
         CheckBox attendanceCheckbox = new CheckBox("Mark All Present");
+        attendanceCheckbox.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222;");
+        attendanceCheckbox.setSelected(false); // force unticked on load
+
         attendanceCheckbox.setOnAction(e -> {
             for (AttendanceRecord record : filteredRecords) {
                 boolean nowPresent = attendanceCheckbox.isSelected();
@@ -74,6 +140,8 @@ public class AttendanceView {
         ComboBox<String> reasonDropdown = new ComboBox<>();
         reasonDropdown.getItems().addAll("All", "Permission", "Sick", "Unexcused", "Other...");
         reasonDropdown.setValue("All");
+        reasonDropdown.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
+        reasonDropdown.setPrefHeight(50);
         reasonDropdown.setOnAction(e -> {
             String selected = reasonDropdown.getValue();
             filteredRecords.setPredicate(record -> {
@@ -84,16 +152,18 @@ public class AttendanceView {
         });
 
         Button clearFilter = new Button("Clear");
+        clearFilter.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
+        clearFilter.setPrefHeight(50);
         clearFilter.setOnAction(e -> {
             reasonDropdown.setValue("All");
             filteredRecords.setPredicate(p -> true);
         });
 
-        ComboBox<String> bulkReasonDropdown = new ComboBox<>();
+     /*   ComboBox<String> bulkReasonDropdown = new ComboBox<>();
         bulkReasonDropdown.getItems().addAll("Permission", "Sick", "Unexcused", "Other...");
         bulkReasonDropdown.setValue("Permission");
 
-        Button applyReasonBtn = new Button("Apply Reason");
+       /* Button applyReasonBtn = new Button("Apply Reason");
         applyReasonBtn.setOnAction(e -> {
             String selectedReason = bulkReasonDropdown.getValue();
             for (AttendanceRecord record : filteredRecords) {
@@ -102,33 +172,12 @@ public class AttendanceView {
                 }
             }
             table.refresh();
-        });
+        });*/
 
-        header.getChildren().addAll(bulkReasonDropdown, applyReasonBtn);
+     //   header.getChildren().addAll(bulkReasonDropdown);
         header.getChildren().addAll(attendanceCheckbox, reasonDropdown, clearFilter);
 
-        Label dateTimeLabel = new Label();
-        dateTimeLabel.setStyle("-fx-font-size: 16px; -fx-text-fill: #555;");
-
-        Label title = new Label("Attendance");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-
-        HBox titleBar = new HBox(20, title, dateTimeLabel);
-        titleBar.setAlignment(Pos.CENTER_RIGHT);
-
-        javafx.animation.Timeline clock = new javafx.animation.Timeline(
-            new javafx.animation.KeyFrame(
-                javafx.util.Duration.seconds(1),
-                e -> {
-                    String now = java.time.LocalDate.now().format(
-                        java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy"))
-                        + " | " + java.time.LocalTime.now().withNano(0);
-                    dateTimeLabel.setText(now);
-                }
-            )
-        );
-        clock.setCycleCount(javafx.animation.Animation.INDEFINITE);
-        clock.play();
+   
 
         // ─── Table setup ────────────────────────────────────────────────────────────
         table = new TableView<>();
@@ -165,17 +214,28 @@ public class AttendanceView {
 
         Button saveBtn = new Button("Save Attendance");
         saveBtn.setOnAction(e -> saveAttendance());
+        saveBtn.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
+        saveBtn.setPrefHeight(50);
 
         chart = new PieChart();
         updateChart(chart);
 
         Button refreshChart = new Button("Refresh Chart");
         refreshChart.setOnAction(e -> updateChart(chart));
+        refreshChart.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
+        refreshChart.setPrefHeight(50);
 
-        root.getChildren().addAll(titleBar, header, table, saveBtn, chartTitle, chart, refreshChart);
+        root.getChildren().addAll(header, table, saveBtn, chartTitle, chart, refreshChart);
 
         loadStudents();
         updateChart(chart);
+        
+        BorderPane mainLayout = new BorderPane();
+        mainLayout.setTop(dashboardHeader);
+        mainLayout.setCenter(root);
+        
+        this.root = new VBox();
+        this.root.getChildren().add(mainLayout);
     }
 
     // ─── NEW: Revised loadStudents() with MIN/MAX ───────────────────────────────

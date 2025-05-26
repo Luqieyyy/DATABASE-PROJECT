@@ -8,7 +8,7 @@ import java.sql.ResultSet;
 import java.time.LocalDateTime;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
-
+import nfc.AdminDashboard;
 public class NFCReader implements Runnable {
 
     private SerialPort serialPort;
@@ -163,7 +163,7 @@ public class NFCReader implements Runnable {
             } else {
                 System.out.println("❌ Unknown card.");
                 Platform.runLater(() -> {
-                    //AdminDashboard.promptRegisterCard(tagId);
+                	AdminDashboard.handleNfcAttendance(tagId);
                 });
             }
 

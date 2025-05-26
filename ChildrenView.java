@@ -6,9 +6,9 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
-
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.*;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -21,16 +21,32 @@ public class ChildrenView extends VBox {
     private final ObservableList<Child> data = FXCollections.observableArrayList();
 
     public ChildrenView() {
-    	Label title = new Label("Children & Parents");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-        title.setPadding(new Insets(0, 0, 10, 0));
-        setSpacing(10);
-        setPadding(new Insets(20));
-        setAlignment(Pos.TOP_CENTER);
-    	
-        setSpacing(10);
-        setPadding(new Insets(20));
-        setAlignment(Pos.TOP_CENTER);
+        // --- HEADER (Yellow Bar) ---
+        HBox headerBar = new HBox(18);
+        headerBar.setAlignment(Pos.CENTER_LEFT);
+        headerBar.setPrefHeight(70);
+        headerBar.setMaxWidth(Double.MAX_VALUE);
+        headerBar.setStyle(
+            "-fx-background-color: linear-gradient(to bottom, #FFD600 90%, #FFC107 100%);" +
+            "-fx-border-color: #f4b400; -fx-border-width: 0 0 3 0;" +
+            "-fx-background-image: repeating-linear-gradient(to bottom, transparent, transparent 12px, #FECF4D 12px, #FECF4D 15px);"
+        );
+        ImageView honeyPot = new ImageView(new Image(getClass().getResource("/nfc/hive2.png").toExternalForm()));
+        honeyPot.setFitWidth(54);
+        honeyPot.setFitHeight(54);
+
+        Label headerTitle = new Label("Children & Parents");
+        headerTitle.setStyle("-fx-font-family: Impact; -fx-font-size: 44px; -fx-font-weight: bold; -fx-text-fill: #181818;");
+
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+
+        headerBar.getChildren().addAll(honeyPot, headerTitle, headerSpacer);
+
+        // --- MAIN CONTENT AREA ---
+        VBox mainContent = new VBox(10);
+        mainContent.setPadding(new Insets(20));
+        mainContent.setAlignment(Pos.TOP_LEFT);
 
         buildTable();
 
@@ -38,7 +54,16 @@ public class ChildrenView extends VBox {
         addBtn.getStyleClass().add("button-birulawa");
         addBtn.setOnAction(e -> CRUDDialogs.showChildDialog(null, true, this::reload));
 
-        getChildren().addAll(title,table, addBtn);
+        mainContent.getChildren().addAll(table, addBtn);
+
+        // --- COMBINE WITH BORDERPANE ---
+        BorderPane layout = new BorderPane();
+        layout.setTop(headerBar);
+        layout.setCenter(mainContent);
+
+        // --- ChildrenView as VBox root ---
+        this.getChildren().add(layout);
+
         reload();
     }
 

@@ -10,6 +10,9 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
@@ -21,16 +24,28 @@ public class StaffManagementView extends VBox {
     private final ObservableList<Staff> data = FXCollections.observableArrayList();
 
     public StaffManagementView() {
-     	Label title = new Label("Staff Management");
-        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
-        title.setPadding(new Insets(0, 0, 10, 0));
-        setSpacing(10);
-        setPadding(new Insets(20));
-        setAlignment(Pos.TOP_CENTER);
-    	
-        setSpacing(10);
-        setPadding(new Insets(20));
-        setAlignment(Pos.TOP_CENTER);
+    	  // Header bar
+        HBox headerBar = new HBox(18);
+        headerBar.setAlignment(Pos.CENTER_LEFT);
+        headerBar.setPrefHeight(70);
+        headerBar.setMaxWidth(Double.MAX_VALUE);
+        headerBar.setStyle(
+            "-fx-background-color: linear-gradient(to bottom, #FFD600 90%, #FFC107 100%);"
+            + "-fx-border-color: #f4b400; -fx-border-width: 0 0 3 0;"
+            + "-fx-background-image: repeating-linear-gradient(to bottom, transparent, transparent 12px, #FECF4D 12px, #FECF4D 15px);"
+        );
+        ImageView honeyPot = new ImageView(new Image(getClass().getResource("/nfc/hive2.png").toExternalForm()));
+        honeyPot.setFitWidth(54);
+        honeyPot.setFitHeight(54);
+        Label dashboardTitle = new Label("Staff Management");
+        dashboardTitle.setFont(javafx.scene.text.Font.font("Impact", javafx.scene.text.FontWeight.EXTRA_BOLD, 44));
+        dashboardTitle.setStyle("-fx-text-fill: #181818;");
+        headerBar.getChildren().addAll(honeyPot, dashboardTitle);
+
+        // Main body
+        VBox mainBody = new VBox(10);
+        mainBody.setPadding(new Insets(20));
+        mainBody.setAlignment(Pos.TOP_LEFT);
 
         buildTable();
 
@@ -38,9 +53,21 @@ public class StaffManagementView extends VBox {
         addBtn.getStyleClass().add("button-birulawa");
         addBtn.setOnAction(e -> CRUDDialogs.showStaffDialog(null, true, this::reload));
 
-        getChildren().addAll(title,table, addBtn);
+        mainBody.getChildren().addAll(table, addBtn);
+
+        // BorderPane for full-width header
+        BorderPane layout = new BorderPane();
+        layout.setTop(headerBar);
+        layout.setCenter(mainBody);
+
+        // Remove old children, add BorderPane
+        getChildren().clear();
+        getChildren().add(layout);
+
+        
         reload();
     }
+
 
     private void buildTable() {
         table.setItems(data);
