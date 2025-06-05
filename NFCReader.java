@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
@@ -86,84 +88,102 @@ public class NFCReader implements Runnable {
 
     private void processTag(String tagId) {
         try (Connection conn = DatabaseConnection.getConnection()) {
-
-            String query = "SELECT id, name FROM children WHERE nfc_uid = ?";
+            String query = "SELECT child_id, name FROM children WHERE nfc_uid = ?";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, tagId);
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                int childId = rs.getInt("id");
+                int childId = rs.getInt("child_id");
                 String childName = rs.getString("name");
 
-                // Check last scan (to prevent duplicate)
-                String lastScanQuery = "SELECT scan_time FROM attendance WHERE child_id = ? ORDER BY scan_time DESC LIMIT 1";
-                PreparedStatement lastScanStmt = conn.prepareStatement(lastScanQuery);
-                lastScanStmt.setInt(1, childId);
-                ResultSet lastScanRs = lastScanStmt.executeQuery();
+                LocalDate today = LocalDate.now();
 
-                boolean allowInsert = true;
+                // Check if attendance record exists for today
+                String checkSql = "SELECT * FROM attendance_status WHERE child_id = ? AND date = ?";
+                PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+                checkStmt.setInt(1, childId);
+                checkStmt.setDate(2, java.sql.Date.valueOf(today));
+                ResultSet checkRs = checkStmt.executeQuery();
 
-                if (lastScanRs.next()) {
-                    LocalDateTime lastScanTime = lastScanRs.getTimestamp("scan_time").toLocalDateTime();
-                    LocalDateTime now = LocalDateTime.now();
-                    if (java.time.Duration.between(lastScanTime, now).toMinutes() < 1) {
-                        allowInsert = false;
+                LocalDateTime now = LocalDateTime.now();
+
+                if (checkRs.next()) {
+                    // Record exists, determine if we update check-in or check-out time
+
+                    Timestamp checkInTimestamp = checkRs.getTimestamp("check_in_time");
+                    Timestamp checkOutTimestamp = checkRs.getTimestamp("check_out_time");
+
+                    boolean shouldUpdateCheckOut = false;
+
+                    if (checkInTimestamp == null) {
+                        // No check-in time yet, so update check-in time
+                        String updateSql = "UPDATE attendance_status SET check_in_time = ?, is_present = 1 WHERE child_id = ? AND date = ?";
+                        PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+                        updateStmt.setTimestamp(1, Timestamp.valueOf(now));
+                        updateStmt.setInt(2, childId);
+                        updateStmt.setDate(3, java.sql.Date.valueOf(today));
+                        updateStmt.executeUpdate();
+
+                        System.out.println("✅ Check-in updated for: " + childName);
+
+                    } else {
+                        // Check-in exists, check if 8 hours passed to allow check-out
+                        LocalDateTime checkInTime = checkInTimestamp.toLocalDateTime();
+                        if (java.time.Duration.between(checkInTime, now).toHours() >= 8) {
+                            shouldUpdateCheckOut = true;
+                        } else {
+                            // To prevent duplicate check-outs within 8 hours
+                            System.out.println("⚠️ Check-out not allowed before 8 hours for: " + childName);
+                            Platform.runLater(() -> {
+                                Alert alert = new Alert(Alert.AlertType.WARNING);
+                                alert.setHeaderText(null);
+                                alert.setContentText("Check-out allowed only after 8 hours from check-in for:\n" + childName);
+                                alert.showAndWait();
+                            });
+                        }
+
+                        if (shouldUpdateCheckOut) {
+                            String updateSql = "UPDATE attendance_status SET check_out_time = ?, is_present = 1 WHERE child_id = ? AND date = ?";
+                            PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+                            updateStmt.setTimestamp(1, Timestamp.valueOf(now));
+                            updateStmt.setInt(2, childId);
+                            updateStmt.setDate(3, java.sql.Date.valueOf(today));
+                            updateStmt.executeUpdate();
+
+                            System.out.println("✅ Check-out updated for: " + childName);
+                        }
                     }
-                }
-
-                if (allowInsert) {
-
-                    // 🔥 1. Insert to attendance
-                    String insertSql = "INSERT INTO attendance (child_id, scan_time) VALUES (?, ?)";
+                } else {
+                    // No record exists for today - insert new record with check-in time
+                    String insertSql = "INSERT INTO attendance_status (child_id, date, check_in_time, is_present) VALUES (?, ?, ?, 1)";
                     PreparedStatement insertStmt = conn.prepareStatement(insertSql);
                     insertStmt.setInt(1, childId);
-                    insertStmt.setObject(2, LocalDateTime.now());
+                    insertStmt.setDate(2, java.sql.Date.valueOf(today));
+                    insertStmt.setTimestamp(3, Timestamp.valueOf(now));
                     insertStmt.executeUpdate();
 
-                    // 🔥 2. Update attendance_status (for pie chart and reports)
-                    String statusSql = """
-                        REPLACE INTO attendance_status 
-                        (child_id, date, is_present, reason, scan_time)
-                        VALUES (?, CURDATE(), 1, '', NOW())
-                        """;
-                    PreparedStatement statusStmt = conn.prepareStatement(statusSql);
-                    statusStmt.setInt(1, childId);
-                    statusStmt.executeUpdate();
-
                     System.out.println("✅ Attendance recorded for: " + childName);
-
-                    // ✅ Update UI and chart
-                    Platform.runLater(() -> {
-                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                        alert.setTitle("Scan Successful");
-                        alert.setHeaderText(null);
-                        alert.setContentText("Attendance marked for:\n" + childName);
-                        alert.showAndWait();
-                    });
-
-                    // ✅ Update all data views
-                    AdminDashboard.updateDashboardData();
-                    AttendanceView.markPresentByChildId(childId); // will tick the box
-                    AttendanceView.updateChartFromStatic();  // updates the chart
-                    AttendanceView.refreshUI();
-
-                } else {
-                    System.out.println("⚠️ Duplicate tap ignored: " + childName);
-
-                    Platform.runLater(() -> {
-                        Alert alert = new Alert(Alert.AlertType.WARNING);
-                        alert.setTitle("Duplicate Scan");
-                        alert.setHeaderText(null);
-                        alert.setContentText(childName + " already scanned recently!\nTry again later.");
-                        alert.showAndWait();
-                    });
                 }
+
+                // Update UI and charts
+                Platform.runLater(() -> {
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Scan Successful");
+                    alert.setHeaderText(null);
+                    alert.setContentText("Attendance processed for:\n" + childName);
+                    alert.showAndWait();
+                });
+
+                AdminDashboard.updateDashboardData();
+                AttendanceView.markPresentByChildId(childId);
+                AttendanceView.updateChartFromStatic();
+                AttendanceView.refreshUI();
 
             } else {
                 System.out.println("❌ Unknown card.");
                 Platform.runLater(() -> {
-                	AdminDashboard.handleNfcAttendance(tagId);
+                    AdminDashboard.handleNfcAttendance(tagId);
                 });
             }
 
@@ -171,4 +191,7 @@ public class NFCReader implements Runnable {
             e.printStackTrace();
         }
     }
+
+
+    
 }

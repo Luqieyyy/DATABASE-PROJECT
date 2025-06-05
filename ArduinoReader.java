@@ -45,7 +45,7 @@ public class ArduinoReader {
 
     private static void saveAttendance(String uid) {
         try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "INSERT INTO attendance (child_id, scan_time) SELECT id, NOW() FROM children WHERE nfc_uid = ?";
+            String sql = "INSERT INTO attendance_status (child_id, scan_time) SELECT id, NOW() FROM children WHERE nfc_uid = ?";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, uid);
             int affectedRows = stmt.executeUpdate();

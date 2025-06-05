@@ -2,6 +2,7 @@ package nfc;
 
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -26,6 +27,7 @@ import javafx.util.Duration;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -46,6 +48,7 @@ public class AdminDashboard extends Application {
     private static Thread nfcReaderThread;
     private double xOffset = 0;
     private double yOffset = 0;
+    public static AdminDashboard getInstance() { return instance; }
 
     public static void main(String[] args) {
         launch(args);
@@ -173,13 +176,12 @@ public class AdminDashboard extends Application {
 
     private VBox createSidebar(Stage primaryStage) {
         VBox sidebar = new VBox(20);
-        sidebar.setPadding(new Insets(10));
-        sidebar.setPrefWidth(220);         // Set your desired fixed width
-        sidebar.setMinWidth(220);          // Prevent shrinking
-        sidebar.setMaxWidth(220); 
+        sidebar.setPadding(new Insets(20));
+        sidebar.setPrefWidth(220);
+        sidebar.setMinWidth(220);
+        sidebar.setMaxWidth(220);
         sidebar.setAlignment(Pos.TOP_CENTER);
-        sidebar.setStyle("-fx-background-color: #d3e3bd;"); // Soft green
-
+        sidebar.setStyle("-fx-background-color: #d3e3bd;");
 
         Image profileImage;
         try {
@@ -188,48 +190,81 @@ public class AdminDashboard extends Application {
         } catch (Exception e) {
             profileImage = new Image("https://via.placeholder.com/60");
         }
-
         ImageView profilePic = new ImageView(profileImage);
         profilePic.setFitWidth(100);
         profilePic.setFitHeight(130);
-        
 
         Label nameLabel = new Label("" + AdminModel.getName());
         nameLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
-        
         ImageView beeIcon = new ImageView(new Image(getClass().getResource("/nfc/bee-icon.png").toExternalForm()));
         beeIcon.setFitWidth(24);
         beeIcon.setFitHeight(24);
         HBox welcomeBox = new HBox(6, nameLabel, beeIcon);
         welcomeBox.setAlignment(Pos.CENTER);
-        
+
         VBox profileBox = new VBox(10, profilePic, welcomeBox);
         profileBox.setAlignment(Pos.CENTER);
 
-        
-        //Nav Buttons
+        // Main navigation buttons
         Button btnDashboard = createNavButton("Dashboard");
         btnDashboard.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         btnDashboard.setPrefHeight(50);
+        btnDashboard.setMaxWidth(Double.MAX_VALUE);
+
         Button btnAttendance = createNavButton("Attendance");
         btnAttendance.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         btnAttendance.setPrefHeight(50);
+        btnAttendance.setMaxWidth(Double.MAX_VALUE);
+
+        // Submenu: Generate Report (always visible and centered)
+        VBox attendanceSubMenu = new VBox(10);
+        attendanceSubMenu.setPadding(new Insets(0, 0, 0, 0));
+        attendanceSubMenu.setAlignment(Pos.CENTER);
+
+        Button btnGenerateReport = createNavButton("Generate Report");
+        btnGenerateReport.setStyle("-fx-background-color: #FFF4B4;-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
+        btnGenerateReport.setPrefHeight(38);
+        btnGenerateReport.setMaxWidth(170);
+
+        Button btnDaily = createNavButton("Daily");
+        btnDaily.setStyle("-fx-background-color: #FFF4B4;-fx-font-size: 13px; -fx-text-fill: #333; -fx-background-radius: 24px;");
+        btnDaily.setPrefHeight(34);
+        btnDaily.setMaxWidth(150);
+
+        Button btnMonthly = createNavButton("Monthly");
+        btnMonthly.setStyle("-fx-background-color: #FFF4B4;-fx-font-size: 13px; -fx-text-fill: #333; -fx-background-radius: 24px;");
+        btnMonthly.setPrefHeight(34);
+        btnMonthly.setMaxWidth(150);
+
+        attendanceSubMenu.getChildren().addAll(btnGenerateReport, btnDaily, btnMonthly);
+
         Button btnChildren = createNavButton("Children & Parents");
         btnChildren.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         btnChildren.setPrefHeight(50);
+        btnChildren.setMaxWidth(Double.MAX_VALUE);
+
         Button btnStaff = createNavButton("Staff Management");
         btnStaff.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         btnStaff.setPrefHeight(50);
+        btnStaff.setMaxWidth(Double.MAX_VALUE);
+
         Button btnLogout = createNavButton("Logout");
         btnLogout.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         btnLogout.setPrefHeight(50);
+        btnLogout.setMaxWidth(Double.MAX_VALUE);
 
+        // Navigation actions
         btnDashboard.setOnAction(e -> loadDashboardContent());
         btnAttendance.setOnAction(e -> {
             AttendanceView view = new AttendanceView();
             setMainContent(view.getRoot());
         });
-
+        btnGenerateReport.setOnAction(e -> {
+        	generateReport gr = new generateReport();
+        	setMainContent(gr.getRoot());
+        });
+        btnDaily.setOnAction(e -> showDailyReportView());
+        btnMonthly.setOnAction(e -> showMonthlyReportView());
 
         btnChildren.setOnAction(e -> {
             ChildrenView childrenPane = new ChildrenView();
@@ -240,42 +275,49 @@ public class AdminDashboard extends Application {
             StaffManagementView staffPane = new StaffManagementView();
             setMainContent(staffPane);
         });
+
         btnLogout.setOnAction(event -> {
             System.out.println("👋 Closing application, releasing Serial Port...");
             if (reader != null) {
-                reader.stopReading();  // ✅ This must stop the Thread!
+                reader.stopReading();
             }
-            LoginView  loginView = new LoginView();
+            LoginView loginView = new LoginView();
             Stage loginStage = new Stage();
             try {
-            	loginView.start(loginStage);
-            }catch(Exception ex) {
-            ex.printStackTrace();
+                loginView.start(loginStage);
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
         });
-
-
-
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
-        sidebar.getChildren().addAll(profileBox, btnDashboard, btnAttendance, btnChildren, btnStaff, spacer, btnLogout);
+        sidebar.getChildren().addAll(
+            profileBox,
+            btnDashboard,
+            btnAttendance,
+            attendanceSubMenu,
+            btnChildren,
+            btnStaff,
+            spacer,
+            btnLogout
+        );
         return sidebar;
     }
 
-   /* private StackPane createContentPane() {
-        mainContent = new Label("Welcome, " + AdminModel.getName());
-        mainContent.setStyle("-fx-font-size: 20px; -fx-text-fill: #333;");
+    
+    public void showDailyReportView() {
+        dailyReport drv = new dailyReport();
+        setMainContent(drv.getRoot());
+    }
 
-        VBox box = new VBox(mainContent);
-        box.setAlignment(Pos.CENTER);
-        box.setPadding(new Insets(20));
+    public void showMonthlyReportView() {
+    	monthlyReport mrv = new monthlyReport();
+        setMainContent(mrv.getRoot());
+    }
 
-        StackPane contentPane = new StackPane(box);
-        contentPane.setStyle("-fx-background-color: #f5f5f5;");
-        return contentPane;
-    }*/
+
 
     private Button createNavButton(String title) {
         Button button = new Button(title);
@@ -453,12 +495,12 @@ public class AdminDashboard extends Application {
     public static void updateStatistics() {
         Platform.runLater(() -> {
             try (Connection conn = DatabaseConnection.getConnection()) {
-                String scannedQuery = "SELECT COUNT(*) FROM attendance WHERE DATE(scan_time) = CURDATE()";
+            	String scannedQuery = "SELECT COUNT(*) FROM attendance_status WHERE date = CURDATE() AND check_in_time IS NOT NULL";
                 PreparedStatement stmt1 = conn.prepareStatement(scannedQuery);
                 ResultSet rs1 = stmt1.executeQuery();
                 if (rs1.next()) scannedToday.setText("Scanned Today: " + rs1.getInt(1));
 
-                String notScannedQuery = "SELECT COUNT(*) FROM children WHERE id NOT IN (SELECT child_id FROM attendance WHERE DATE(scan_time) = CURDATE())";
+                String notScannedQuery = "SELECT COUNT(*) FROM children WHERE child_id NOT IN (SELECT child_id FROM attendance_status WHERE date = CURDATE() AND check_in_time IS NOT NULL)";
                 PreparedStatement stmt2 = conn.prepareStatement(notScannedQuery);
                 ResultSet rs2 = stmt2.executeQuery();
                 if (rs2.next()) notScanned.setText("Not Yet Scanned: " + rs2.getInt(1));
@@ -474,13 +516,13 @@ public class AdminDashboard extends Application {
     	  Platform.runLater(() -> {
     	    try (Connection conn = DatabaseConnection.getConnection()) {
     	      // 1) Check-Ins
-    	      String inSql = """
-    	        SELECT TIME(a.scan_time) AS tm, c.name
-    	          FROM attendance a
-    	          JOIN children  c ON a.child_id = c.id
-    	         WHERE DATE(a.scan_time)=CURDATE() AND a.scan_type='IN'
-    	         ORDER BY a.scan_time DESC
-    	      """;
+    	    	String inSql = """
+    	    			  SELECT TIME(a.check_in_time) AS tm, c.name
+    	    			    FROM attendance_status a
+    	    			    JOIN children  c ON a.child_id = c.child_id
+    	    			   WHERE a.date = CURDATE() AND a.check_in_time IS NOT NULL
+    	    			   ORDER BY a.check_in_time DESC
+    	    			""";
     	      ObservableList<String> ins = FXCollections.observableArrayList();
     	      try (ResultSet rs = conn.createStatement().executeQuery(inSql)) {
     	        while (rs.next()) {
@@ -491,12 +533,12 @@ public class AdminDashboard extends Application {
 
     	      // 2) Check-Outs
     	      String outSql = """
-    	        SELECT TIME(a.scan_time) AS tm, c.name
-    	          FROM attendance a
-    	          JOIN children  c ON a.child_id = c.id
-    	         WHERE DATE(a.scan_time)=CURDATE() AND a.scan_type='OUT'
-    	         ORDER BY a.scan_time DESC
-    	      """;
+    	    		  SELECT TIME(a.check_out_time) AS tm, c.name
+    	    		    FROM attendance_status a
+    	    		    JOIN children  c ON a.child_id = c.child_id
+    	    		   WHERE a.date = CURDATE() AND a.check_out_time IS NOT NULL
+    	    		   ORDER BY a.check_out_time DESC
+    	    		""";
     	      ObservableList<String> outs = FXCollections.observableArrayList();
     	      try (ResultSet rs = conn.createStatement().executeQuery(outSql)) {
     	        while (rs.next()) {
@@ -576,7 +618,7 @@ public class AdminDashboard extends Application {
 
         try (Connection conn = DatabaseConnection.getConnection()) {
             // 1. Find child by NFC
-            String childSql = "SELECT id, name FROM children WHERE nfc_uid = ?";
+        	String childSql = "SELECT child_id, name FROM children WHERE nfc_uid = ?";
             PreparedStatement childStmt = conn.prepareStatement(childSql);
             childStmt.setString(1, nfcUid);
             ResultSet childRs = childStmt.executeQuery();
@@ -587,11 +629,11 @@ public class AdminDashboard extends Application {
                 return;
             }
 
-            int childId = childRs.getInt("id");
+            int childId = childRs.getInt("child_id");
             String childName = childRs.getString("name");
 
             // 2. Get today's attendance for this child
-            String attSql = "SELECT scan_time, scan_type FROM attendance WHERE child_id = ? AND DATE(scan_time) = ?";
+            String attSql = "SELECT check_in_time, check_out_time FROM attendance_status WHERE child_id = ? AND date = ?";
             PreparedStatement attStmt = conn.prepareStatement(attSql);
             attStmt.setInt(1, childId);
             attStmt.setDate(2, java.sql.Date.valueOf(today));
@@ -600,31 +642,25 @@ public class AdminDashboard extends Application {
             LocalDateTime checkInTime = null;
             boolean checkedOut = false;
 
-            while (attRs.next()) {
-                String scanType = attRs.getString("scan_type");
-                if ("IN".equals(scanType)) {
-                    checkInTime = attRs.getTimestamp("scan_time").toLocalDateTime();
-                }
-                if ("OUT".equals(scanType)) {
-                    checkedOut = true;
-                }
+            if (attRs.next()) {
+                Timestamp inTs = attRs.getTimestamp("check_in_time");
+                Timestamp outTs = attRs.getTimestamp("check_out_time");
+                if (inTs != null) checkInTime = inTs.toLocalDateTime();
+                if (outTs != null) checkedOut = true;
             }
 
             if (checkInTime == null) {
-                // No check-in today: do check-in
-                recordAttendance(childId, "IN");
+                recordCheckIn(childId);
                 Platform.runLater(() -> showAlert("Check-in successful for " + childName, Alert.AlertType.INFORMATION));
             } else if (!checkedOut) {
-                // Already checked in, check if enough time passed for check-out
                 long hoursBetween = java.time.Duration.between(checkInTime, LocalDateTime.now()).toHours();
                 if (hoursBetween < 8) {
                     Platform.runLater(() -> showAlert("Cannot check out yet. Minimum 8 hours between check-in and check-out.", Alert.AlertType.WARNING));
                 } else {
-                    recordAttendance(childId, "OUT");
+                    recordCheckOut(childId);
                     Platform.runLater(() -> showAlert("Check-out successful for " + childName, Alert.AlertType.INFORMATION));
                 }
             } else {
-                // Already checked out today
                 Platform.runLater(() -> showAlert("Already checked out today for " + childName, Alert.AlertType.WARNING));
             }
 
@@ -633,17 +669,33 @@ public class AdminDashboard extends Application {
             Platform.runLater(() -> showAlert("Database error: " + e.getMessage(), Alert.AlertType.ERROR));
         }
     }
-
-    // Helper method to record attendance
-    private static void recordAttendance(int childId, String type) throws Exception {
+    
+    private static void recordCheckIn(int childId) throws Exception {
         try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "INSERT INTO attendance (child_id, scan_time, scan_type) VALUES (?, NOW(), ?)";
+            String sql = """
+                INSERT INTO attendance_status (child_id, date, check_in_time)
+                VALUES (?, CURDATE(), NOW())
+                ON DUPLICATE KEY UPDATE check_in_time = NOW()
+            """;
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setInt(1, childId);
-            stmt.setString(2, type);
             stmt.executeUpdate();
         }
     }
+
+    private static void recordCheckOut(int childId) throws Exception {
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String sql = """
+                UPDATE attendance_status
+                SET check_out_time = NOW()
+                WHERE child_id = ? AND date = CURDATE()
+            """;
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setInt(1, childId);
+            stmt.executeUpdate();
+        }
+    }
+
 
     // Helper to show alerts on UI
     private static void showAlert(String msg, Alert.AlertType type) {
@@ -655,27 +707,6 @@ public class AdminDashboard extends Application {
     }
 
 
-    // ✅ Add this
-    /*public static void promptRegisterCard(String tagId) {
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-            alert.setTitle("Unknown Card Detected");
-            alert.setHeaderText(null);
-            alert.setContentText("This card is not registered.\nWould you like to register it now?");
-
-            ButtonType yesButton = new ButtonType("Yes", ButtonBar.ButtonData.YES);
-            ButtonType noButton = new ButtonType("No", ButtonBar.ButtonData.NO);
-
-            alert.getButtonTypes().setAll(yesButton, noButton);
-
-            alert.showAndWait().ifPresent(response -> {
-                if (response == yesButton) {
-                	showRegisterForm(tagId);  // No need to write AdminDashboard again
-   // ✅ correct
-                }
-            });
-
-        });
-    }*/    
+  
 
 }

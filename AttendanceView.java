@@ -1,6 +1,8 @@
+
 package nfc;
 
 import javafx.scene.control.cell.CheckBoxTableCell;
+import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -16,19 +18,37 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.util.Callback;
 import javafx.util.Duration;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 
+import java.io.File;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+
+import javafx.beans.property.*;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Pos;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+
+import java.awt.Desktop;
+import java.io.File;
+import java.io.IOException;
+import java.sql.*;
 
 public class AttendanceView {
 
@@ -37,14 +57,18 @@ public class AttendanceView {
     private TableView<AttendanceRecord> table;
     private ObservableList<AttendanceRecord> masterRecords = FXCollections.observableArrayList();
     private FilteredList<AttendanceRecord> filteredRecords = new FilteredList<>(masterRecords, p -> true);
-    private PieChart chart;  // ✅ make it global
+    private PieChart chart; // ✅ make it global
     // ─── NEW: datePicker field ────────────────────────────────────────────────────
-    private DatePicker datePicker = new DatePicker(LocalDate.now());
+    private DatePicker datePicker;
     // ────────────────────────────────────────────────────────────────────────────────
+    private static final DateTimeFormatter DB_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DISPLAY_TIME_FORMAT = DateTimeFormatter.ofPattern("hh:mm a");
 
     public AttendanceView() {
         currentInstance = this;
         
+        datePicker = new DatePicker(LocalDate.now());
+
         HBox dashboardHeader = new HBox(18);
         dashboardHeader.setAlignment(Pos.CENTER_LEFT);
         dashboardHeader.setPrefHeight(70);
@@ -86,11 +110,19 @@ public class AttendanceView {
 
        
         // ─── 3) Create date‐picker row ───────────────────────────────────
-        DatePicker datePicker = new DatePicker(LocalDate.now());
+        datePicker = new DatePicker(LocalDate.now());
         Button loadBtn = new Button("Load Date");
+        loadBtn.setOnAction(e -> {
+            LocalDate selectedDate = datePicker.getValue();
+            loadStudents(selectedDate);
+            updateChart(chart, selectedDate);
+        });
+        
         loadBtn.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         loadBtn.setPrefHeight(50);
-        loadBtn.setOnAction(e -> loadStudents());
+        
+     
+       
 
         // spacer to push date controls to the right
         Region dateSpacer = new Region();
@@ -120,19 +152,22 @@ public class AttendanceView {
         attendanceCheckbox.setOnAction(e -> {
             for (AttendanceRecord record : filteredRecords) {
                 boolean nowPresent = attendanceCheckbox.isSelected();
-                record.setPresent(nowPresent);
                 if (nowPresent) {
                     String nowTime = java.time.LocalDateTime.now()
                         .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                    record.setScanTime(nowTime);
+                    record.setCheckInFullTimestamp(nowTime);  // Use setCheckInFullTimestamp here!
                 } else {
-                    record.setScanTime("");
+                    record.setCheckInFullTimestamp("");  // Clear full timestamp when unchecked
                 }
             }
             table.refresh();
-            updateChart(chart);
+            updateChart(chart, datePicker.getValue());
             AdminDashboard.updateDashboardData();
+
+            loadStudents(datePicker.getValue());
+            updateChart(chart, datePicker.getValue());
         });
+
 
        // Button viewReportsButton = new Button("View Reports");
        // viewReportsButton.setOnAction(e -> this.showAllReportsWindow());
@@ -151,6 +186,16 @@ public class AttendanceView {
             });
         });
 
+        // Add these two listeners to auto-show dropdown
+        reasonDropdown.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal) {
+                reasonDropdown.show();
+            }
+        });
+
+        reasonDropdown.setOnMouseEntered(e -> reasonDropdown.show());
+
+
         Button clearFilter = new Button("Clear");
         clearFilter.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         clearFilter.setPrefHeight(50);
@@ -159,11 +204,11 @@ public class AttendanceView {
             filteredRecords.setPredicate(p -> true);
         });
 
-     /*   ComboBox<String> bulkReasonDropdown = new ComboBox<>();
+     ComboBox<String> bulkReasonDropdown = new ComboBox<>();
         bulkReasonDropdown.getItems().addAll("Permission", "Sick", "Unexcused", "Other...");
         bulkReasonDropdown.setValue("Permission");
 
-       /* Button applyReasonBtn = new Button("Apply Reason");
+       Button applyReasonBtn = new Button("Apply Reason");
         applyReasonBtn.setOnAction(e -> {
             String selectedReason = bulkReasonDropdown.getValue();
             for (AttendanceRecord record : filteredRecords) {
@@ -172,9 +217,9 @@ public class AttendanceView {
                 }
             }
             table.refresh();
-        });*/
+        });
 
-     //   header.getChildren().addAll(bulkReasonDropdown);
+        header.getChildren().addAll(bulkReasonDropdown);
         header.getChildren().addAll(attendanceCheckbox, reasonDropdown, clearFilter);
 
    
@@ -186,27 +231,195 @@ public class AttendanceView {
         TableColumn<AttendanceRecord, String> nameCol = new TableColumn<>("Name");
         nameCol.setCellValueFactory(data -> data.getValue().nameProperty());
 
-        TableColumn<AttendanceRecord, Boolean> presentCol = new TableColumn<>("Present");
+        TableColumn<AttendanceRecord, Boolean> presentCol = new TableColumn<>("Manual Check-in");
         presentCol.setCellValueFactory(cellData -> cellData.getValue().presentProperty());
-        presentCol.setCellFactory(CheckBoxTableCell.forTableColumn(presentCol));
+        presentCol.setCellFactory(col -> {
+            CheckBoxTableCell<AttendanceRecord, Boolean> cell = new CheckBoxTableCell<>();
+
+            cell.setSelectedStateCallback(index -> {
+                AttendanceRecord record = table.getItems().get(index);
+                return record.presentProperty();
+            });
+
+            cell.setOnMouseClicked(event -> {
+                int index = cell.getIndex();
+                if (index >= 0 && index < table.getItems().size()) {
+                    AttendanceRecord record = table.getItems().get(index);
+                    boolean isSelected = !record.isPresent();
+                    record.setPresent(isSelected);
+
+                    if (isSelected) {
+                        LocalDateTime now = LocalDateTime.now();
+                        record.setCheckInFullTimestamp(now.format(DB_TIMESTAMP_FORMAT));
+                    } else {
+                        record.setCheckInFullTimestamp("");
+                    }
+
+
+                    table.refresh();
+                }
+            });
+
+            return cell;
+        });
         presentCol.setEditable(true);
 
         TableColumn<AttendanceRecord, String> reasonCol = new TableColumn<>("Reason");
+        reasonCol.setMinWidth(120);
+
+        
+        reasonCol.setCellFactory(ComboBoxTableCell.forTableColumn("", "Permission", "Sick", "Unexcused", "Other..."));
+      //reasonCol.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
+
         reasonCol.setCellValueFactory(data -> data.getValue().reasonProperty());
-        // (your existing combo-box factory for reasons)...
 
-        // ─── NEW: Check-In & Check-Out columns ───────────────────────────────────
-        TableColumn<AttendanceRecord,String> inCol  = new TableColumn<>("Check-In");
-        inCol.setCellValueFactory(c -> c.getValue().checkInTimeProperty());
+
+        TableColumn<AttendanceRecord, String> inCol  = new TableColumn<>("Check-In");
         inCol.setPrefWidth(140);
+        inCol.setCellValueFactory(data -> data.getValue().checkInTimeProperty());
+        inCol.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isEmpty()) {
+                    setText("");
+                } else {
+                    try {
+                        LocalDateTime dt = LocalDateTime.parse(item, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                        setText(dt.format(DateTimeFormatter.ofPattern("hh:mm a")));
+                    } catch (Exception e) {
+                        setText(item);
+                    }
+                }
+            }
+        });
 
-        TableColumn<AttendanceRecord,String> outCol = new TableColumn<>("Check-Out");
+     
+
+        
+        TableColumn<AttendanceRecord, Boolean> manualCheckOutCol = new TableColumn<>("Manual Check-out");
+        manualCheckOutCol.setCellValueFactory(cellData -> cellData.getValue().manualCheckOutProperty());
+        manualCheckOutCol.setCellFactory(col -> {
+            CheckBoxTableCell<AttendanceRecord, Boolean> cell = new CheckBoxTableCell<>();
+
+            cell.setSelectedStateCallback(index -> {
+                AttendanceRecord record = table.getItems().get(index);
+                return record.manualCheckOutProperty();
+            });
+
+            cell.setOnMouseClicked(event -> {
+                int index = cell.getIndex();
+                if (index >= 0 && index < table.getItems().size()) {
+                    AttendanceRecord record = table.getItems().get(index);
+                    boolean isSelected = !record.isManualCheckOut();
+                    record.setManualCheckOut(isSelected);
+
+                    if (isSelected) {
+                        LocalDateTime now = LocalDateTime.now();
+                        record.setCheckOutFullTimestamp(now.format(DB_TIMESTAMP_FORMAT));
+                    } else {
+                        record.setCheckOutFullTimestamp("");
+                    }
+
+
+                    table.refresh();
+                }
+            });
+
+            return cell;
+        });
+        manualCheckOutCol.setEditable(true);
+
+        TableColumn<AttendanceRecord, String> outCol = new TableColumn<>("Check-Out");
         outCol.setCellValueFactory(c -> c.getValue().checkOutTimeProperty());
-        outCol.setPrefWidth(140);
-        // ─────────────────────────────────────────────────────────────────────────
+        outCol.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isEmpty()) {
+                    setText("");
+                } else {
+                    try {
+                        LocalDateTime dateTime = LocalDateTime.parse(item, DB_TIMESTAMP_FORMAT);
+                        setText(dateTime.format(DISPLAY_TIME_FORMAT));
+                    } catch (Exception e) {
+                        setText(item);  // fallback to raw string if parse fails
+                    }
+                }
+            }
+        });
 
-        table.getColumns().addAll(nameCol, presentCol, reasonCol, inCol, outCol);
+        outCol.setPrefWidth(140);
+
+
+
+
+        TableColumn<AttendanceRecord, Void> uploadCol = new TableColumn<>("Upload Letter");
+        uploadCol.setCellFactory(new Callback<>() {
+            @Override
+            public TableCell<AttendanceRecord, Void> call(final TableColumn<AttendanceRecord, Void> param) {
+                return new TableCell<>() {
+                    private final Button btn = new Button("Upload");
+                    {
+                        btn.setOnAction(event -> {
+                            AttendanceRecord record = getTableView().getItems().get(getIndex());
+                            FileChooser fileChooser = new FileChooser();
+                            File selectedFile = fileChooser.showOpenDialog(null);
+                            if (selectedFile != null) {
+                                record.setReasonLetterFile(selectedFile);
+                            }
+                        });
+                    }
+                    @Override
+                    public void updateItem(Void item, boolean empty) {
+                        super.updateItem(item, empty);
+                        setGraphic(empty ? null : btn);
+                    }
+                };
+            }
+        });
+        
+        TableColumn<AttendanceRecord, Void> viewCol = new TableColumn<>("View Letter");
+        viewCol.setCellFactory(new Callback<>() {
+            @Override
+            public TableCell<AttendanceRecord, Void> call(final TableColumn<AttendanceRecord, Void> param) {
+                return new TableCell<>() {
+                    private final Button viewBtn = new Button("View");
+
+                    {
+                        viewBtn.setOnAction(event -> {
+                            AttendanceRecord record = getTableView().getItems().get(getIndex());
+                            File reasonLetterFile = record.getReasonLetterFile();
+
+                            if (reasonLetterFile != null && reasonLetterFile.exists()) {
+                                try {
+                                    Desktop.getDesktop().open(reasonLetterFile);
+                                } catch (IOException ex) {
+                                    new Alert(Alert.AlertType.ERROR, "Unable to open file: " + ex.getMessage()).showAndWait();
+                                }
+                            } else {
+                                new Alert(Alert.AlertType.WARNING, "No reason letter available to view.").showAndWait();
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void updateItem(Void item, boolean empty) {
+                        super.updateItem(item, empty);
+                        setGraphic(empty ? null : viewBtn);
+                    }
+                };
+            }
+        });
+
+
+
+        table.getColumns().addAll(
+        	    nameCol, presentCol, reasonCol, inCol, outCol, manualCheckOutCol, uploadCol, viewCol
+        	);
         table.setItems(filteredRecords);
+        table.setEditable(true);
+
         // ────────────────────────────────────────────────────────────────────────────
 
         Label chartTitle = new Label("Today's Attendance");
@@ -218,17 +431,17 @@ public class AttendanceView {
         saveBtn.setPrefHeight(50);
 
         chart = new PieChart();
-        updateChart(chart);
+        updateChart(chart, datePicker.getValue());
 
         Button refreshChart = new Button("Refresh Chart");
-        refreshChart.setOnAction(e -> updateChart(chart));
+        refreshChart.setOnAction(e -> updateChart(chart, datePicker.getValue()));
         refreshChart.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         refreshChart.setPrefHeight(50);
 
         root.getChildren().addAll(header, table, saveBtn, chartTitle, chart, refreshChart);
 
-        loadStudents();
-        updateChart(chart);
+        loadStudents(datePicker.getValue());
+        updateChart(chart, datePicker.getValue());
         
         BorderPane mainLayout = new BorderPane();
         mainLayout.setTop(dashboardHeader);
@@ -239,65 +452,103 @@ public class AttendanceView {
     }
 
     // ─── NEW: Revised loadStudents() with MIN/MAX ───────────────────────────────
-    private void loadStudents() {
+ // Change method to accept date parameter
+    private void loadStudents(LocalDate date) {
         masterRecords.clear();
 
         String sql = """
-            SELECT c.id, c.name,
-                   MIN(a.scan_time) AS check_in,
-                   MAX(a.scan_time) AS check_out,
-                   CASE WHEN MAX(a.scan_time) IS NOT NULL THEN 1 ELSE 0 END AS is_present
+            SELECT c.child_id, c.name,
+                   a.check_in_time,
+                   a.check_out_time,
+                   a.is_present,
+                   a.reason_letter
               FROM children c
-              LEFT JOIN attendance a
-                ON c.id=a.child_id 
-               AND DATE(a.scan_time)=?
-             GROUP BY c.id, c.name
+         LEFT JOIN attendance_status a
+                ON c.child_id = a.child_id AND a.date = ?
         """;
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setDate(1, java.sql.Date.valueOf(datePicker.getValue()));
+            ps.setDate(1, java.sql.Date.valueOf(date));
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
                 AttendanceRecord r = new AttendanceRecord(
-                    rs.getInt("id"),
+                    rs.getInt("child_id"),
                     rs.getString("name")
                 );
-                r.setPresent     (rs.getBoolean("is_present"));
-                r.setCheckInTime (rs.getString("check_in"));
-                r.setCheckOutTime(rs.getString("check_out"));
+                r.setPresent(rs.getBoolean("is_present"));
+                
+                Timestamp checkInTs = rs.getTimestamp("check_in_time");
+                r.setCheckInFullTimestamp(checkInTs != null ? checkInTs.toLocalDateTime().format(DB_TIMESTAMP_FORMAT) : "");
+
+                Timestamp checkOutTs = rs.getTimestamp("check_out_time");
+                r.setCheckOutFullTimestamp(checkOutTs != null ? checkOutTs.toLocalDateTime().format(DB_TIMESTAMP_FORMAT) : "");
+                // other fields ...
+                String reason = rs.getString("reason_letter");
+                if ("Default".equals(reason)) reason = "";
+                r.setReason(reason);
+
                 masterRecords.add(r);
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         table.refresh();
-        updateChart(chart);
+        updateChart(chart, date);
         AdminDashboard.updateDashboardData();
     }
 
 
 
+
+
+    
     private void saveAttendance() {
-    	LocalDate today = LocalDate.now();
-    	java.sql.Timestamp now = new java.sql.Timestamp(System.currentTimeMillis());
+        LocalDate selectedDate = datePicker.getValue();
+        DateTimeFormatter displayFormatter = DateTimeFormatter.ofPattern("hh:mm a");
+        DateTimeFormatter sqlFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         try (Connection conn = DatabaseConnection.getConnection()) {
             for (AttendanceRecord record : filteredRecords) {
-            	String sql = "REPLACE INTO attendance_status (child_id, date, is_present, reason, scan_time) VALUES (?, ?, ?, ?, ?)";
+                String sql = "REPLACE INTO attendance_status (child_id, date, is_present, reason, check_in_time, check_out_time, reason_letter) VALUES (?, ?, ?, ?, ?, ?, ?)";
                 PreparedStatement stmt = conn.prepareStatement(sql);
+
                 stmt.setInt(1, record.getChildId());
-                stmt.setDate(2, java.sql.Date.valueOf(today));
+                stmt.setDate(2, java.sql.Date.valueOf(selectedDate));
                 stmt.setBoolean(3, record.isPresent());
                 stmt.setString(4, record.getReason());
-                String scanTimeStr = record.getScanTime();
-                if (scanTimeStr != null && !scanTimeStr.isEmpty()) {
-                    stmt.setTimestamp(5, java.sql.Timestamp.valueOf(scanTimeStr));
+
+                String checkInStr = record.getCheckInTime();
+                System.out.println("Saving child: " + record.getChildId() + " checkIn: " + checkInStr);
+                if (checkInStr != null && !checkInStr.isEmpty()) {
+                    LocalTime time = LocalTime.parse(checkInStr, displayFormatter);
+                    LocalDateTime dateTime = LocalDateTime.of(selectedDate, time);
+                    String fullTimestamp = dateTime.format(sqlFormatter);
+                    stmt.setTimestamp(5, java.sql.Timestamp.valueOf(fullTimestamp));
                 } else {
-                    stmt.setTimestamp(5, null);  // No time
+                    stmt.setTimestamp(5, null);
+                }
+
+                String checkOutStr = record.getCheckOutTime();
+                System.out.println("Saving child: " + record.getChildId() + " checkOut: " + checkOutStr);
+                if (checkOutStr != null && !checkOutStr.isEmpty()) {
+                    LocalTime time = LocalTime.parse(checkOutStr, displayFormatter);
+                    LocalDateTime dateTime = LocalDateTime.of(selectedDate, time);
+                    String fullTimestamp = dateTime.format(sqlFormatter);
+                    stmt.setTimestamp(6, java.sql.Timestamp.valueOf(fullTimestamp));
+                } else {
+                    stmt.setTimestamp(6, null);
+                }
+
+                File reasonFile = record.getReasonLetterFile();
+                if (reasonFile != null) {
+                    stmt.setString(7, reasonFile.getAbsolutePath());
+                } else {
+                    stmt.setString(7, null);
                 }
 
                 stmt.executeUpdate();
@@ -308,39 +559,51 @@ public class AttendanceView {
         }
     }
 
-    private void updateChart(PieChart chart) {
+
+
+   
+
+
+    private void updateChart(PieChart chart, LocalDate date) {
         try (Connection conn = DatabaseConnection.getConnection()) {
             String sql = """
                 SELECT 
                     SUM(CASE WHEN is_present THEN 1 ELSE 0 END) AS present,
                     SUM(CASE WHEN NOT is_present THEN 1 ELSE 0 END) AS absent
                 FROM attendance_status 
-                WHERE date = CURDATE()
+                WHERE date = ?
                 """;
 
             PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setDate(1, java.sql.Date.valueOf(date));
+
             ResultSet rs = stmt.executeQuery();
 
-            int present = 0, absent = 0;
+            final int[] counts = new int[2]; // counts[0] = present, counts[1] = absent
             if (rs.next()) {
-                present = rs.getInt("present");
-                absent = rs.getInt("absent");
+                counts[0] = rs.getObject("present") != null ? rs.getInt("present") : 0;
+                counts[1] = rs.getObject("absent")  != null ? rs.getInt("absent")  : 0;
             }
 
-            int total = present + absent;
+
+            int total = counts[0] + counts[1];
 
             PieChart.Data presentData = new PieChart.Data(
-                "Present (" + present + (total > 0 ? " | " + (present * 100 / total) + "%" : "") + ")", present
+                "Present (" + counts[0] + (total > 0 ? " | " + (counts[0] * 100 / total) + "%" : "") + ")", counts[0]
             );
             PieChart.Data absentData = new PieChart.Data(
-                "Absent (" + absent + (total > 0 ? " | " + (absent * 100 / total) + "%" : "") + ")", absent
+                "Absent (" + counts[1] + (total > 0 ? " | " + (counts[1] * 100 / total) + "%" : "") + ")", counts[1]
             );
 
             chart.setData(FXCollections.observableArrayList(presentData, absentData));
-            
 
-            Tooltip.install(presentData.getNode(), new Tooltip(present + " students present"));
-            Tooltip.install(absentData.getNode(), new Tooltip(absent + " students absent"));
+            Platform.runLater(() -> {
+                if (presentData.getNode() != null)
+                    Tooltip.install(presentData.getNode(), new Tooltip(counts[0] + " students present"));
+                if (absentData.getNode() != null)
+                    Tooltip.install(absentData.getNode(), new Tooltip(counts[1] + " students absent"));
+            });
+
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -418,14 +681,15 @@ public class AttendanceView {
                 for (AttendanceRecord record : currentInstance.masterRecords) {
                     if (record.getChildId() == childId) {
                         record.setPresent(true);
+                        record.setCheckInFullTimestamp(LocalDateTime.now().format(DB_TIMESTAMP_FORMAT));
                         found = true;
                         break;
                     }
                 }
 
                 // Reload attendance reasons and chart from database
-                currentInstance.loadStudents();   // ✅ refresh all data (so absent/present list updates)
-                currentInstance.updateChart(currentInstance.chart);
+                currentInstance.loadStudents(currentInstance.datePicker.getValue());   // ✅ refresh all data (so absent/present list updates)
+                currentInstance.updateChart(currentInstance.chart, currentInstance.datePicker.getValue());
                 currentInstance.table.refresh();
             }
         });
@@ -436,7 +700,7 @@ public class AttendanceView {
         Platform.runLater(() -> {
             if (currentInstance != null) {
                 if (currentInstance.chart != null) {
-                    currentInstance.updateChart(currentInstance.chart);
+                	currentInstance.updateChart(currentInstance.chart, currentInstance.datePicker.getValue());
                     currentInstance.table.refresh();
                 } else {
                     System.out.println("⚠ Pie chart not available (Attendance tab might be closed). Skipping chart update.");
@@ -449,14 +713,16 @@ public class AttendanceView {
     public static void refreshUI() {
         Platform.runLater(() -> {
             if (currentInstance != null) {
-                currentInstance.loadStudents(); // reload the attendance list
+            	currentInstance.loadStudents(currentInstance.datePicker.getValue());
                 if (currentInstance.chart != null) {
-                    currentInstance.updateChart(currentInstance.chart);
+                	currentInstance.updateChart(currentInstance.chart, currentInstance.datePicker.getValue());
                 }
                 currentInstance.table.refresh();
             }
         });
     }
+ 
+    
 
 
 

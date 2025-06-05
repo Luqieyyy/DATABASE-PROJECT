@@ -1,3 +1,4 @@
+
 package nfc;
 
 import javafx.collections.FXCollections;
@@ -126,7 +127,7 @@ public class ChildrenView extends VBox {
     public void reload() {
         data.clear();
         String sql = """
-            SELECT id,
+            SELECT child_id,
                    name,
                    birth_date,
                    parent_name,
@@ -141,7 +142,7 @@ public class ChildrenView extends VBox {
 
             while (rs.next()) {
                 data.add(new Child(
-                    rs.getInt("id"),
+                    rs.getInt("child_id"),
                     rs.getString("name"),
                     rs.getDate("birth_date") != null
                         ? rs.getDate("birth_date").toLocalDate()
@@ -172,20 +173,20 @@ public class ChildrenView extends VBox {
     }
 
     public static class Child {
-        private final int       id;
+        private final int       child_id;
         private final String    name;
         private final LocalDate birthDate;
         private final String    parentName;
         private final String    parentContact;
         private final String    uid;
 
-        public Child(int id,
+        public Child(int child_id,
                      String name,
                      LocalDate birthDate,
                      String parentName,
                      String parentContact,
                      String uid) {
-            this.id            = id;
+            this.child_id      =child_id;
             this.name          = name;
             this.birthDate     = birthDate;
             this.parentName    = parentName;
@@ -193,7 +194,7 @@ public class ChildrenView extends VBox {
             this.uid           = uid;
         }
 
-        public int        getId()            { return id; }
+        public int        getId()            { return child_id; }
         public String     getName()          { return name; }
         public LocalDate  getBirthDate()     { return birthDate; }
         public String     getParentName()    { return parentName; }

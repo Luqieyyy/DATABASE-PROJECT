@@ -20,6 +20,7 @@ import java.sql.ResultSet;
 public class LoginView extends Application {
 
     private ImageView profileImageView;
+    
 
     @Override
     public void start(Stage primaryStage) {

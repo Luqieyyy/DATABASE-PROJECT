@@ -222,8 +222,50 @@
 }
 
 
+/* Submenu style: soft background, rounded */
+.submenu-box {
+    -fx-background-color: #FFF8E1;
+    -fx-background-radius: 20px;
+    -fx-padding: 8 0 8 0;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.07), 4, 0, 0, 2);
 }
 
+/* Make sure submenu buttons match the main style */
+/*.button {
+    -fx-font-size: 16px;
+    -fx-background-radius: 28px;
+    -fx-background-color: #FFF176;
+    -fx-text-fill: #222;
+    -fx-font-weight: bold;
+    -fx-pref-width: 180px;
+    -fx-alignment: center;
+    -fx-cursor: hand;
+    -fx-padding: 8 0 8 0;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.03), 2, 0, 0, 1);
+    -fx-transition: all 0.3s;
+}
+
+.button:hover {
+    -fx-background-color: #FFD600;
+    -fx-translate-x: 5px;  /* subtle hover move */
+}
+
+/* Sidebar vertical alignment 
+.vbox {
+    -fx-alignment: center;
+}*/
+
+.combo-box .arrow-button {
+    -fx-opacity: 1.0; /* make arrow fully visible */
+    -fx-background-color: transparent; /* optional: remove hover background */
+}
+
+.combo-box:hover .arrow-button {
+    -fx-opacity: 1.0; /* keep fully visible on hover */
+}
+
+
+}
 
 
 
