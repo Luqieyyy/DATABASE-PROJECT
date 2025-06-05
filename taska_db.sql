@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: May 26, 2025 at 07:09 PM
+-- Generation Time: Jun 05, 2025 at 07:48 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -46,19 +46,6 @@ INSERT INTO `admin` (`id`, `username`, `password`, `profile_picture`, `name`) VA
 -- --------------------------------------------------------
 
 --
--- Table structure for table `attendance`
---
-
-CREATE TABLE `attendance` (
-  `id` int(11) NOT NULL,
-  `child_id` int(11) NOT NULL,
-  `scan_time` datetime NOT NULL,
-  `scan_type` enum('IN','OUT') NOT NULL DEFAULT 'IN'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `attendance_status`
 --
 
@@ -68,22 +55,40 @@ CREATE TABLE `attendance_status` (
   `date` date DEFAULT NULL,
   `is_present` tinyint(1) DEFAULT NULL,
   `reason` varchar(255) DEFAULT NULL,
-  `scan_time` datetime DEFAULT NULL
+  `reason_letter` varchar(100) DEFAULT NULL,
+  `check_in_time` datetime DEFAULT NULL,
+  `check_out_time` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `attendance_status`
 --
 
-INSERT INTO `attendance_status` (`id`, `child_id`, `date`, `is_present`, `reason`, `scan_time`) VALUES
-(781, 4, '2025-05-26', 0, '', NULL),
-(782, 5, '2025-05-26', 0, '', NULL),
-(783, 6, '2025-05-26', 0, '', NULL),
-(784, 7, '2025-05-26', 0, '', NULL),
-(785, 8, '2025-05-26', 0, '', NULL),
-(786, 9, '2025-05-26', 0, '', NULL),
-(787, 10, '2025-05-26', 0, '', NULL),
-(788, 11, '2025-05-26', 0, '', NULL);
+INSERT INTO `attendance_status` (`id`, `child_id`, `date`, `is_present`, `reason`, `reason_letter`, `check_in_time`, `check_out_time`) VALUES
+(1171, 4, '2025-06-03', 0, NULL, NULL, NULL, NULL),
+(1172, 5, '2025-06-03', 1, NULL, NULL, '2025-06-03 14:26:00', NULL),
+(1173, 6, '2025-06-03', 1, NULL, NULL, '2025-06-03 14:26:00', NULL),
+(1174, 7, '2025-06-03', 1, NULL, NULL, NULL, NULL),
+(1175, 8, '2025-06-03', 1, NULL, NULL, '2025-06-03 14:27:41', NULL),
+(1176, 9, '2025-06-03', 0, NULL, NULL, NULL, NULL),
+(1177, 10, '2025-06-03', 1, NULL, NULL, '2025-06-03 14:27:36', NULL),
+(1178, 11, '2025-06-03', 0, NULL, NULL, NULL, NULL),
+(1180, 4, '2025-06-04', 0, NULL, NULL, NULL, NULL),
+(1181, 5, '2025-06-04', 0, NULL, NULL, NULL, NULL),
+(1182, 6, '2025-06-04', 0, NULL, NULL, NULL, NULL),
+(1183, 7, '2025-06-04', 0, NULL, NULL, NULL, NULL),
+(1184, 8, '2025-06-04', 0, NULL, NULL, NULL, NULL),
+(1185, 9, '2025-06-04', 0, NULL, NULL, NULL, NULL),
+(1186, 10, '2025-06-04', 0, NULL, NULL, NULL, NULL),
+(1187, 11, '2025-06-04', 0, NULL, NULL, NULL, NULL),
+(1188, 4, '2025-06-05', 0, NULL, NULL, NULL, NULL),
+(1189, 5, '2025-06-05', 0, NULL, NULL, NULL, NULL),
+(1190, 6, '2025-06-05', 0, NULL, NULL, NULL, NULL),
+(1191, 7, '2025-06-05', 0, NULL, NULL, NULL, NULL),
+(1192, 8, '2025-06-05', 1, NULL, NULL, '2025-06-05 13:46:19', NULL),
+(1193, 9, '2025-06-05', 0, NULL, NULL, NULL, NULL),
+(1194, 10, '2025-06-05', 0, NULL, NULL, NULL, NULL),
+(1195, 11, '2025-06-05', 0, NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -92,7 +97,7 @@ INSERT INTO `attendance_status` (`id`, `child_id`, `date`, `is_present`, `reason
 --
 
 CREATE TABLE `children` (
-  `id` int(11) NOT NULL,
+  `child_id` int(11) NOT NULL,
   `name` varchar(100) NOT NULL,
   `birth_date` date DEFAULT NULL,
   `parent_name` varchar(100) DEFAULT NULL,
@@ -104,7 +109,7 @@ CREATE TABLE `children` (
 -- Dumping data for table `children`
 --
 
-INSERT INTO `children` (`id`, `name`, `birth_date`, `parent_name`, `parent_contact`, `nfc_uid`) VALUES
+INSERT INTO `children` (`child_id`, `name`, `birth_date`, `parent_name`, `parent_contact`, `nfc_uid`) VALUES
 (4, 'Luqieyy', '2004-11-02', 'LuqmanBahrin', '017-1111111', '37354542334630350D0A'),
 (5, 'Husky', '2004-11-03', 'Luq', '017-2834650', '42373234394130320D0A'),
 (6, 'Dr', '1987-05-29', 'Test', '011-2569101', '34323434324130330D0A'),
@@ -150,13 +155,6 @@ ALTER TABLE `admin`
   ADD UNIQUE KEY `username` (`username`);
 
 --
--- Indexes for table `attendance`
---
-ALTER TABLE `attendance`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `child_id` (`child_id`);
-
---
 -- Indexes for table `attendance_status`
 --
 ALTER TABLE `attendance_status`
@@ -167,7 +165,7 @@ ALTER TABLE `attendance_status`
 -- Indexes for table `children`
 --
 ALTER TABLE `children`
-  ADD PRIMARY KEY (`id`),
+  ADD PRIMARY KEY (`child_id`),
   ADD UNIQUE KEY `nfc_uid` (`nfc_uid`);
 
 --
@@ -187,22 +185,10 @@ ALTER TABLE `admin`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT for table `attendance`
---
-ALTER TABLE `attendance`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=242;
-
---
 -- AUTO_INCREMENT for table `attendance_status`
 --
 ALTER TABLE `attendance_status`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=789;
-
---
--- AUTO_INCREMENT for table `children`
---
-ALTER TABLE `children`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1196;
 
 --
 -- AUTO_INCREMENT for table `staff`
@@ -215,16 +201,10 @@ ALTER TABLE `staff`
 --
 
 --
--- Constraints for table `attendance`
---
-ALTER TABLE `attendance`
-  ADD CONSTRAINT `attendance_ibfk_1` FOREIGN KEY (`child_id`) REFERENCES `children` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `attendance_status`
 --
 ALTER TABLE `attendance_status`
-  ADD CONSTRAINT `attendance_status_ibfk_1` FOREIGN KEY (`child_id`) REFERENCES `children` (`id`);
+  ADD CONSTRAINT `attendance_status_ibfk_1` FOREIGN KEY (`child_id`) REFERENCES `children` (`child_id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
