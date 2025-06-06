@@ -207,6 +207,7 @@ public class AttendanceView {
      ComboBox<String> bulkReasonDropdown = new ComboBox<>();
         bulkReasonDropdown.getItems().addAll("Permission", "Sick", "Unexcused", "Other...");
         bulkReasonDropdown.setValue("Permission");
+        bulkReasonDropdown.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
 
        Button applyReasonBtn = new Button("Apply Reason");
         applyReasonBtn.setOnAction(e -> {
@@ -229,9 +230,13 @@ public class AttendanceView {
         table.setEditable(true);
 
         TableColumn<AttendanceRecord, String> nameCol = new TableColumn<>("Name");
+        nameCol.setPrefWidth(80);
+        nameCol.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         nameCol.setCellValueFactory(data -> data.getValue().nameProperty());
 
-        TableColumn<AttendanceRecord, Boolean> presentCol = new TableColumn<>("Manual Check-in");
+        TableColumn<AttendanceRecord, Boolean> presentCol = new TableColumn<>("Manual In");
+        presentCol.setPrefWidth(90);
+        presentCol.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         presentCol.setCellValueFactory(cellData -> cellData.getValue().presentProperty());
         presentCol.setCellFactory(col -> {
             CheckBoxTableCell<AttendanceRecord, Boolean> cell = new CheckBoxTableCell<>();
@@ -265,9 +270,8 @@ public class AttendanceView {
         presentCol.setEditable(true);
 
         TableColumn<AttendanceRecord, String> reasonCol = new TableColumn<>("Reason");
-        reasonCol.setMinWidth(120);
-
-        
+        reasonCol.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
+        reasonCol.setMinWidth(100);
         reasonCol.setCellFactory(ComboBoxTableCell.forTableColumn("", "Permission", "Sick", "Unexcused", "Other..."));
       //reasonCol.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
 
@@ -275,7 +279,8 @@ public class AttendanceView {
 
 
         TableColumn<AttendanceRecord, String> inCol  = new TableColumn<>("Check-In");
-        inCol.setPrefWidth(140);
+        inCol.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
+        inCol.setPrefWidth(90);
         inCol.setCellValueFactory(data -> data.getValue().checkInTimeProperty());
         inCol.setCellFactory(col -> new TableCell<>() {
             @Override
@@ -297,7 +302,9 @@ public class AttendanceView {
      
 
         
-        TableColumn<AttendanceRecord, Boolean> manualCheckOutCol = new TableColumn<>("Manual Check-out");
+        TableColumn<AttendanceRecord, Boolean> manualCheckOutCol = new TableColumn<>("Manual Out");
+        manualCheckOutCol.setMinWidth(90);
+        manualCheckOutCol.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         manualCheckOutCol.setCellValueFactory(cellData -> cellData.getValue().manualCheckOutProperty());
         manualCheckOutCol.setCellFactory(col -> {
             CheckBoxTableCell<AttendanceRecord, Boolean> cell = new CheckBoxTableCell<>();
@@ -331,6 +338,8 @@ public class AttendanceView {
         manualCheckOutCol.setEditable(true);
 
         TableColumn<AttendanceRecord, String> outCol = new TableColumn<>("Check-Out");
+        outCol.setPrefWidth(95);
+        outCol.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         outCol.setCellValueFactory(c -> c.getValue().checkOutTimeProperty());
         outCol.setCellFactory(column -> new TableCell<>() {
             @Override
@@ -349,12 +358,12 @@ public class AttendanceView {
             }
         });
 
-        outCol.setPrefWidth(140);
 
 
 
 
         TableColumn<AttendanceRecord, Void> uploadCol = new TableColumn<>("Upload Letter");
+        uploadCol.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         uploadCol.setCellFactory(new Callback<>() {
             @Override
             public TableCell<AttendanceRecord, Void> call(final TableColumn<AttendanceRecord, Void> param) {
@@ -380,6 +389,7 @@ public class AttendanceView {
         });
         
         TableColumn<AttendanceRecord, Void> viewCol = new TableColumn<>("View Letter");
+        viewCol.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         viewCol.setCellFactory(new Callback<>() {
             @Override
             public TableCell<AttendanceRecord, Void> call(final TableColumn<AttendanceRecord, Void> param) {
@@ -415,10 +425,24 @@ public class AttendanceView {
 
 
         table.getColumns().addAll(
-        	    nameCol, presentCol, reasonCol, inCol, outCol, manualCheckOutCol, uploadCol, viewCol
+        	    nameCol, presentCol,inCol, outCol, manualCheckOutCol,reasonCol, uploadCol, viewCol
         	);
         table.setItems(filteredRecords);
         table.setEditable(true);
+        table.setRowFactory(tv -> new TableRow<AttendanceRecord>() {
+            @Override
+            protected void updateItem(AttendanceRecord item, boolean empty) {
+                super.updateItem(item, empty);
+                if (item == null || empty) {
+                    setStyle("");
+                } else if (item.isPresent()) {
+                    setStyle("-fx-background-color: #e8f5e9; -fx-text-fill: #2e7d32;"); // Soft green row, green text
+                } else {
+                    setStyle("-fx-background-color: #ffebee; -fx-text-fill: #c62828;"); // Soft red row, red text
+                }
+            }
+        });
+
 
         // ────────────────────────────────────────────────────────────────────────────
 
@@ -455,17 +479,12 @@ public class AttendanceView {
  // Change method to accept date parameter
     private void loadStudents(LocalDate date) {
         masterRecords.clear();
-
         String sql = """
-            SELECT c.child_id, c.name,
-                   a.check_in_time,
-                   a.check_out_time,
-                   a.is_present,
-                   a.reason_letter
-              FROM children c
-         LEFT JOIN attendance_status a
-                ON c.child_id = a.child_id AND a.date = ?
-        """;
+        	    SELECT c.child_id, c.name, a.check_in_time, a.check_out_time, a.is_present, a.reason_letter, a.manual_checkout
+        	    FROM children c
+        	    LEFT JOIN attendance_status a ON c.child_id = a.child_id AND a.date = ?
+        	""";
+
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -485,7 +504,9 @@ public class AttendanceView {
 
                 Timestamp checkOutTs = rs.getTimestamp("check_out_time");
                 r.setCheckOutFullTimestamp(checkOutTs != null ? checkOutTs.toLocalDateTime().format(DB_TIMESTAMP_FORMAT) : "");
-                // other fields ...
+
+                r.setManualCheckOut(rs.getBoolean("manual_checkout"));
+                
                 String reason = rs.getString("reason_letter");
                 if ("Default".equals(reason)) reason = "";
                 r.setReason(reason);
@@ -514,7 +535,7 @@ public class AttendanceView {
 
         try (Connection conn = DatabaseConnection.getConnection()) {
             for (AttendanceRecord record : filteredRecords) {
-                String sql = "REPLACE INTO attendance_status (child_id, date, is_present, reason, check_in_time, check_out_time, reason_letter) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            	String sql = "REPLACE INTO attendance_status (child_id, date, is_present, reason, check_in_time, check_out_time, reason_letter, manual_checkout) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
                 PreparedStatement stmt = conn.prepareStatement(sql);
 
                 stmt.setInt(1, record.getChildId());
@@ -550,6 +571,7 @@ public class AttendanceView {
                 } else {
                     stmt.setString(7, null);
                 }
+                stmt.setBoolean(8, record.isManualCheckOut());
 
                 stmt.executeUpdate();
             }

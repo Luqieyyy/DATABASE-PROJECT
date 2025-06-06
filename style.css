@@ -264,6 +264,22 @@
     -fx-opacity: 1.0; /* keep fully visible on hover */
 }
 
+.table-view .column-header-background {
+    -fx-background-color: #FFCB3C; /* Yellow like your right image */
+}
+
+.table-view .column-header, .table-view .column-header .label {
+    -fx-background-color: transparent; /* Remove default gray */
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #222;
+}
+
+.table-view .filler {
+    -fx-background-color: #FFCB3C;
+}
+
+
 
 }
 

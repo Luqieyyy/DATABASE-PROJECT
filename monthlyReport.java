@@ -109,7 +109,9 @@ public class monthlyReport {
             "January", "February", "March", "April", "May", "June",
             "July", "August", "September", "October", "November", "December"
         );
-        monthDropdown.setValue("January"); // Default
+        int currentMonthIndex = java.time.LocalDate.now().getMonthValue() - 1; // 0-based for ComboBox
+        monthDropdown.setValue(monthDropdown.getItems().get(currentMonthIndex));
+
 
         // Year Dropdown (e.g., from 2020 to current year)
         yearDropdown = new ComboBox<>();
@@ -130,16 +132,8 @@ public class monthlyReport {
         // Table Setup
         table = new TableView<>();
         setupTable();
-
-        // Generate All Button
-        Button generateAllBtn = new Button("Generate ALL");
-        generateAllBtn.setStyle("-fx-background-color: #FFCB3C; -fx-font-weight: bold;");
-        generateAllBtn.setOnAction(e -> {
-            // TODO: Implement full PDF report generation for all students in selected month/year
-            System.out.println("Generate All pressed");
-        });
-
-        root.getChildren().addAll(title, controls, table, generateAllBtn);
+        
+         root.getChildren().addAll(title, controls, table);
 
         // Initial load
         loadMonthlyReport();
@@ -148,24 +142,29 @@ public class monthlyReport {
     private void setupTable() {
         TableColumn<StudentMonthlyAttendance, Integer> idCol = new TableColumn<>("Child ID");
         idCol.setCellValueFactory(data -> data.getValue().childIdProperty().asObject());
-        idCol.setPrefWidth(80);
+        idCol.setPrefWidth(120);
 
         TableColumn<StudentMonthlyAttendance, String> nameCol = new TableColumn<>("Name");
         nameCol.setCellValueFactory(data -> data.getValue().nameProperty());
         nameCol.setPrefWidth(150);
 
+        TableColumn<StudentMonthlyAttendance, String> percentCol = new TableColumn<>("Attendance ");
+        percentCol.setCellValueFactory(data -> data.getValue().attendancePercentProperty());
+        percentCol.setPrefWidth(150);
+
+        
         TableColumn<StudentMonthlyAttendance, String> performanceCol = new TableColumn<>("Performance");
         performanceCol.setCellValueFactory(data -> data.getValue().performanceProperty());
-        performanceCol.setPrefWidth(100);
+        performanceCol.setPrefWidth(150);
 
         TableColumn<StudentMonthlyAttendance, Void> downloadCol = new TableColumn<>("Download");
+        downloadCol.setPrefWidth(140);
         downloadCol.setCellFactory(col -> new TableCell<StudentMonthlyAttendance, Void>() {
             private final Button btn = new Button("⬇");
             {
                btn.setOnAction(e -> {
                     StudentMonthlyAttendance row = getTableView().getItems().get(getIndex());
 
-                    // Get student info and attendance rows
                     StudentInfo info = getStudentInfoFromDB(row.getChildId());
 
                     int selectedMonth = monthDropdown.getSelectionModel().getSelectedIndex() + 1;
@@ -174,8 +173,17 @@ public class monthlyReport {
 
                     List<AttendanceRow> days = getAttendanceRowsForStudentMonth(row.getChildId(), selectedMonth, selectedYear);
 
-                    // Show the preview/edit dialog
-                    showMonthlyReportPreview(info, days, selectedMonthName, String.valueOf(selectedYear));
+                    
+                    
+                    // Pass performance and percent
+                    showMonthlyReportPreview(
+                        info, 
+                        days, 
+                        selectedMonthName, 
+                        String.valueOf(selectedYear), 
+                        row.getAttendancePercent(), 
+                        row.getPerformance() // Pass performance value
+                    );
                 });
 
             }
@@ -185,13 +193,59 @@ public class monthlyReport {
                 setGraphic(empty ? null : btn);
             }
         });
+
         downloadCol.setPrefWidth(100);
 
 
-        table.getColumns().addAll(idCol, nameCol, performanceCol, downloadCol);
+        table.getColumns().addAll(idCol, nameCol,percentCol, performanceCol, downloadCol);
+        
+        table.setRowFactory(tv -> new TableRow<StudentMonthlyAttendance>() {
+            @Override
+            protected void updateItem(StudentMonthlyAttendance item, boolean empty) {
+                super.updateItem(item, empty);
+                if (item == null || empty) {
+                    setStyle("");
+                } else if ("Good".equalsIgnoreCase(item.getPerformance())) {
+                    setStyle("-fx-background-color: #e7ffe9;"); // green
+                } else {
+                    setStyle("-fx-background-color: #ffe7e7;"); // red
+                }
+            }
+        });
+        percentCol.setCellFactory(col -> new TableCell<StudentMonthlyAttendance, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    StudentMonthlyAttendance att = getTableView().getItems().get(getIndex());
+                    setStyle("Good".equalsIgnoreCase(att.getPerformance()) ?
+                        "-fx-text-fill: #087400; -fx-font-weight: bold;" :
+                        "-fx-text-fill: #c62828; -fx-font-weight: bold;");
+                }
+            }
+        });
+        performanceCol.setCellFactory(col -> new TableCell<StudentMonthlyAttendance, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    setStyle("Good".equalsIgnoreCase(item) ?
+                        "-fx-text-fill: #087400; -fx-font-weight: bold;" :
+                        "-fx-text-fill: #c62828; -fx-font-weight: bold;");
+                }
+            }
+        });
     }
 
-    public void showMonthlyReportPreview(StudentInfo info, List<AttendanceRow> days, String month, String year) {
+    public void showMonthlyReportPreview(StudentInfo info, List<AttendanceRow> days, String month, String year,String attendancePercent, String performance) {
         Stage previewStage = new Stage();
         previewStage.setTitle("Preview & Edit Report for " + info.childName);
 
@@ -201,7 +255,7 @@ public class monthlyReport {
         // Logo and Title
         Image logoImg;
         try {
-            logoImg = new Image(getClass().getResourceAsStream("/nfc/logo.png"));
+            logoImg = new Image(getClass().getResourceAsStream("/nfc/beecaliph.png"));
         } catch (Exception e) {
             logoImg = null; // fallback or placeholder
         }
@@ -222,7 +276,21 @@ public class monthlyReport {
         infoPane.addRow(3, new Label("CONTACT NUMBER:"), new Label(info.parentContact)); 
         infoPane.addRow(4, new Label("MONTH:"), new Label(month.toUpperCase()));
         infoPane.addRow(5, new Label("YEAR:"), new Label(year));
-
+        
+        Label performanceLabel = new Label(
+                "Attendance: " + attendancePercent + "   |   Performance: " + performance.toUpperCase()
+            );
+            performanceLabel.setFont(Font.font("Poppins", FontWeight.BOLD, 15));
+            if ("Good".equalsIgnoreCase(performance)) {
+                performanceLabel.setStyle(
+                    "-fx-background-color: #e7ffe9; -fx-text-fill: #087400; -fx-padding: 10 0 10 10; -fx-background-radius: 8;"
+                );
+            } else {
+                performanceLabel.setStyle(
+                    "-fx-background-color: #ffe7e7; -fx-text-fill: #c62828; -fx-padding: 10 0 10 10; -fx-background-radius: 8;"
+                );
+            }
+            performanceLabel.setMaxWidth(Double.MAX_VALUE);
 
         // TableView for Attendance (read-only or editable as you wish)
         TableColumn<AttendanceRow, String> dateCol = new TableColumn<>("DATE");
@@ -274,7 +342,7 @@ public class monthlyReport {
             if (file != null) {
                 try {
                     PDFReport.generateStudentMonthlyReport(
-                        file.getAbsolutePath(), "src/nfc/logo.png", info, days, month, year
+                        file.getAbsolutePath(), "src/nfc/beecaliph.png", info, days, month, year
                     );
                     new Alert(Alert.AlertType.INFORMATION, "PDF saved!").showAndWait();
                 } catch (Exception ex) {
@@ -285,7 +353,7 @@ public class monthlyReport {
         });
 
 
-        layout.getChildren().addAll(logo, title, infoPane, attendanceTable, saveBtn);
+        layout.getChildren().addAll(logo, title, infoPane, performanceLabel, attendanceTable, saveBtn);
         previewStage.setScene(new Scene(layout, 650, 600));
         previewStage.show();
     }
@@ -311,34 +379,53 @@ public class monthlyReport {
         ObservableList<StudentMonthlyAttendance> data = FXCollections.observableArrayList();
 
         String sql = """
-            SELECT
-                c.child_id,
-                c.name,
-                COALESCE(ROUND((SUM(CASE WHEN a.is_present = 1 THEN 1 ELSE 0 END) / COUNT(a.date)) * 100, 2), 0) AS attendance_percent,
-                CASE
-                    WHEN COALESCE(ROUND((SUM(CASE WHEN a.is_present = 1 THEN 1 ELSE 0 END) / COUNT(a.date)) * 100, 2), 0) >= 80 THEN 'Good'
-                    ELSE 'Poor'
-                END AS performance
-            FROM children c
-            LEFT JOIN attendance_status a ON c.child_id = a.child_id
-                AND MONTH(a.date) = ?
-                AND YEAR(a.date) = ?
-            GROUP BY c.child_id, c.name
-            ORDER BY c.child_id
-            """;
+        	    SELECT
+        	        c.child_id,
+        	        c.name,
+        	        COUNT(a.id) AS total_records,
+        	        SUM(a.is_present = 1) AS days_present,
+        	        (SELECT DAY(LAST_DAY(CONCAT(?, '-', LPAD(?,2,'0'), '-01')))) AS days_in_month,
+        	        ROUND(
+        	            (SUM(a.is_present = 1) /
+        	            (SELECT DAY(LAST_DAY(CONCAT(?, '-', LPAD(?,2,'0'), '-01')))) ) * 100, 2
+        	        ) AS attendance_percent,
+        	        CASE
+        	            WHEN ROUND(
+        	                (SUM(a.is_present = 1) /
+        	                (SELECT DAY(LAST_DAY(CONCAT(?, '-', LPAD(?,2,'0'), '-01')))) ) * 100, 2
+        	            ) >= 80 THEN 'Good'
+        	            ELSE 'Poor'
+        	        END AS performance
+        	    FROM children c
+        	    LEFT JOIN attendance_status a ON c.child_id = a.child_id
+        	        AND MONTH(a.date) = ?
+        	        AND YEAR(a.date) = ?
+        	    GROUP BY c.child_id, c.name
+        	    ORDER BY c.child_id
+        	    """;
+
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, month);
-            ps.setInt(2, year);
+            ps.setInt(1, year);
+            ps.setInt(2, month);
+            ps.setInt(3, year);   // for percent calc
+            ps.setInt(4, month);
+            ps.setInt(5, year);   // for percent calc
+            ps.setInt(6, month);
+            ps.setInt(7, month);  // for attendance_status join
+            ps.setInt(8, year);
+
 
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 int id = rs.getInt("child_id");
                 String name = rs.getString("name");
+                double percent= rs.getDouble("attendance_percent");
+                String percentString = String.format("%.2f%%", percent);
                 String performance = rs.getString("performance");
 
-                data.add(new StudentMonthlyAttendance(id, name, performance));
+                data.add(new StudentMonthlyAttendance(id, name,percentString, performance));
             }
         } catch (Exception e) {
             e.printStackTrace();

@@ -13,6 +13,7 @@ public class AttendanceRow {
     private final StringProperty checkInTime;
     private final StringProperty checkOutTime;
     private final ObjectProperty<LocalDate> date; // <-- add this
+    private final SimpleStringProperty remark = new SimpleStringProperty("");
 
     
 
@@ -41,6 +42,14 @@ public class AttendanceRow {
     public String getCheckInTime() { return checkInTime.get(); }
     public String getCheckOutTime() { return checkOutTime.get(); }
     public String getReason() { return reason.get(); }
+    public String getRemark() { return remark.get(); }
+
+
+    public void setRemark(String value) { remark.set(value); }
+
+
+
+	public StringProperty remarkProperty() { return remark; }
 
 
 }
