@@ -95,9 +95,17 @@ public class ChildrenView extends VBox {
                 del .getStyleClass().add("buttonlogout1");
                 edit.setOnAction(e -> showEdit(getCurrent()));
                 del .setOnAction(e -> {
-                    deleteChild(getCurrent());
-                    reload();
+                    Child current = getCurrent();
+                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Delete child and all their attendance records?", ButtonType.YES, ButtonType.NO);
+                    alert.setHeaderText("Confirm Delete");
+                    alert.showAndWait().ifPresent(response -> {
+                        if (response == ButtonType.YES) {
+                            deleteChild(current);
+                            reload();
+                        }
+                    });
                 });
+
             }
             private Child getCurrent() {
                 return getTableView().getItems().get(getIndex());
@@ -162,11 +170,23 @@ public class ChildrenView extends VBox {
     }
 
     private void deleteChild(Child c) {
-        String sql = "DELETE FROM children WHERE nfc_uid=?";
-        try (var conn = DatabaseConnection.getConnection();
-             var ps   = conn.prepareStatement(sql)) {
-            ps.setString(1, c.getUid());
-            ps.executeUpdate();
+        try (var conn = DatabaseConnection.getConnection()) {
+            // 1. Find the child's ID (since your delete uses nfc_uid, get id first)
+            int childId = c.getId();
+
+            // 2. Delete from attendance_status first
+            String delAttendance = "DELETE FROM attendance_status WHERE child_id=?";
+            try (var psAttend = conn.prepareStatement(delAttendance)) {
+                psAttend.setInt(1, childId);
+                psAttend.executeUpdate();
+            }
+
+            // 3. Now delete from children
+            String delChild = "DELETE FROM children WHERE nfc_uid=?";
+            try (var psChild = conn.prepareStatement(delChild)) {
+                psChild.setString(1, c.getUid());
+                psChild.executeUpdate();
+            }
         } catch (SQLException ex) {
             ex.printStackTrace();
         }

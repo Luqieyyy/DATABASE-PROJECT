@@ -140,28 +140,31 @@ public class CRUDDialogs {
 
     // ------------------ Staff Dialog ------------------
 
-    public static void showStaffDialog(StaffManagementView.Staff existing,
+    public static void showStaffDialog(StaffManagementView.Admin existing,
                                        boolean isNew,
                                        Runnable onSave) {
-        Dialog<StaffManagementView.Staff> dlg = new Dialog<>();
+        Dialog<StaffManagementView.Admin> dlg = new Dialog<>();
         dlg.initModality(Modality.APPLICATION_MODAL);
         dlg.setTitle(isNew ? "Add New Staff" : "Edit Staff");
 
-        TextField nameTf    = new TextField();
-        TextField contactTf = new TextField();
-        TextField roleTf    = new TextField();
+        TextField usernameTf = new TextField();
+        TextField passwordTf = new TextField();
+        TextField profilePictureTf = new TextField();
+        TextField nameTf = new TextField();
 
         if (!isNew && existing != null) {
+            usernameTf.setText(existing.getUsername());
+            passwordTf.setText(existing.getPassword());
+            profilePictureTf.setText(existing.getProfilePicture());
             nameTf.setText(existing.getName());
-            contactTf.setText(existing.getContactNumber());
-            roleTf.setText(existing.getRole());
         }
 
         VBox vb = new VBox(10,
-            new Label("Name:"),           nameTf,
-            new Label("Contact Number:"), contactTf,
-            new Label("Role:"),           roleTf
-        );
+                new Label("Username:"),       usernameTf,
+                new Label("Password:"),       passwordTf,
+                new Label("Profile Picture:"), profilePictureTf,
+                new Label("Name:"),           nameTf
+            );
         vb.setPadding(new Insets(20));
         dlg.getDialogPane().setContent(vb);
 
@@ -170,36 +173,38 @@ public class CRUDDialogs {
 
         dlg.setResultConverter(bt -> {
             if (bt == saveBtn) {
-                return new StaffManagementView.Staff(
+                return new StaffManagementView.Admin(
                     isNew ? 0 : existing.getId(),
-                    nameTf.getText().trim(),
-                    contactTf.getText().trim(),
-                    roleTf.getText().trim()
+                    usernameTf.getText().trim(),
+                    passwordTf.getText().trim(),
+                    profilePictureTf.getText().trim(),
+                    nameTf.getText().trim()
                 );
             }
             return null;
         });
-
-        dlg.showAndWait().ifPresent(staff -> {
+        dlg.showAndWait().ifPresent(admin -> {
             if (isNew) {
-                String insert = "INSERT INTO staff(name, contact_number, role) VALUES (?, ?, ?)";
+                String insert = "INSERT INTO admin (username, password, profile_picture, name) VALUES (?, ?, ?, ?)";
                 try (Connection conn = DatabaseConnection.getConnection();
                      PreparedStatement ps = conn.prepareStatement(insert)) {
-                    ps.setString(1, staff.getName());
-                    ps.setString(2, staff.getContactNumber());
-                    ps.setString(3, staff.getRole());
+                    ps.setString(1, admin.getUsername());
+                    ps.setString(2, admin.getPassword());
+                    ps.setString(3, admin.getProfilePicture());
+                    ps.setString(4, admin.getName());
                     ps.executeUpdate();
                 } catch (SQLException ex) {
                     ex.printStackTrace();
                 }
             } else {
-                String update = "UPDATE staff SET name=?, contact_number=?, role=? WHERE id=?";
+                String update = "UPDATE admin SET username=?, password=?, profile_picture=?, name=? WHERE id=?";
                 try (Connection conn = DatabaseConnection.getConnection();
                      PreparedStatement ps = conn.prepareStatement(update)) {
-                    ps.setString(1, staff.getName());
-                    ps.setString(2, staff.getContactNumber());
-                    ps.setString(3, staff.getRole());
-                    ps.setInt   (4, existing.getId());
+                    ps.setString(1, admin.getUsername());
+                    ps.setString(2, admin.getPassword());
+                    ps.setString(3, admin.getProfilePicture());
+                    ps.setString(4, admin.getName());
+                    ps.setInt(5, admin.getId());
                     ps.executeUpdate();
                 } catch (SQLException ex) {
                     ex.printStackTrace();

@@ -48,7 +48,8 @@ public class AdminDashboard extends Application {
     private static Thread nfcReaderThread;
     private double xOffset = 0;
     private double yOffset = 0;
-    public static AdminDashboard getInstance() { return instance; }
+    public static AdminDashboard getInstance() { 
+    	return instance; }
 
     public static void main(String[] args) {
         launch(args);
@@ -227,12 +228,12 @@ public class AdminDashboard extends Application {
         btnGenerateReport.setMaxWidth(170);
 
         Button btnDaily = createNavButton("Daily");
-        btnDaily.setStyle("-fx-background-color: #FFF4B4;-fx-font-size: 13px; -fx-text-fill: #333; -fx-background-radius: 24px;");
+        btnDaily.setStyle("-fx-background-color: #FFF4B4;-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         btnDaily.setPrefHeight(34);
         btnDaily.setMaxWidth(150);
 
         Button btnMonthly = createNavButton("Monthly");
-        btnMonthly.setStyle("-fx-background-color: #FFF4B4;-fx-font-size: 13px; -fx-text-fill: #333; -fx-background-radius: 24px;");
+        btnMonthly.setStyle("-fx-background-color: #FFF4B4;-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         btnMonthly.setPrefHeight(34);
         btnMonthly.setMaxWidth(150);
 
