@@ -141,76 +141,93 @@ public class CRUDDialogs {
     // ------------------ Staff Dialog ------------------
 
     public static void showStaffDialog(StaffManagementView.Admin existing,
-                                       boolean isNew,
-                                       Runnable onSave) {
-        Dialog<StaffManagementView.Admin> dlg = new Dialog<>();
-        dlg.initModality(Modality.APPLICATION_MODAL);
-        dlg.setTitle(isNew ? "Add New Staff" : "Edit Staff");
+            boolean isNew,
+            Runnable onSave) {
+Dialog<StaffManagementView.Admin> dlg = new Dialog<>();
+dlg.initModality(Modality.APPLICATION_MODAL);
+dlg.setTitle(isNew ? "Add New Staff" : "Edit Staff");
 
-        TextField usernameTf = new TextField();
-        TextField passwordTf = new TextField();
-        TextField profilePictureTf = new TextField();
-        TextField nameTf = new TextField();
+TextField usernameTf = new TextField();
+TextField passwordTf = new TextField();
+TextField profilePictureTf = new TextField();
+TextField nameTf = new TextField();
 
-        if (!isNew && existing != null) {
-            usernameTf.setText(existing.getUsername());
-            passwordTf.setText(existing.getPassword());
-            profilePictureTf.setText(existing.getProfilePicture());
-            nameTf.setText(existing.getName());
-        }
+if (!isNew && existing != null) {
+usernameTf.setText(existing.getUsername());
+// Password field left blank for security
+profilePictureTf.setText(existing.getProfilePicture());
+nameTf.setText(existing.getName());
+}
 
-        VBox vb = new VBox(10,
-                new Label("Username:"),       usernameTf,
-                new Label("Password:"),       passwordTf,
-                new Label("Profile Picture:"), profilePictureTf,
-                new Label("Name:"),           nameTf
-            );
-        vb.setPadding(new Insets(20));
-        dlg.getDialogPane().setContent(vb);
+VBox vb = new VBox(10,
+new Label("Username:"),       usernameTf,
+new Label("Password:"),       passwordTf,
+new Label("Profile Picture:"), profilePictureTf,
+new Label("Name:"),           nameTf
+);
+vb.setPadding(new Insets(20));
+dlg.getDialogPane().setContent(vb);
 
-        ButtonType saveBtn = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
-        dlg.getDialogPane().getButtonTypes().addAll(saveBtn, ButtonType.CANCEL);
+ButtonType saveBtn = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+dlg.getDialogPane().getButtonTypes().addAll(saveBtn, ButtonType.CANCEL);
 
-        dlg.setResultConverter(bt -> {
-            if (bt == saveBtn) {
-                return new StaffManagementView.Admin(
-                    isNew ? 0 : existing.getId(),
-                    usernameTf.getText().trim(),
-                    passwordTf.getText().trim(),
-                    profilePictureTf.getText().trim(),
-                    nameTf.getText().trim()
-                );
-            }
-            return null;
-        });
-        dlg.showAndWait().ifPresent(admin -> {
-            if (isNew) {
-                String insert = "INSERT INTO admin (username, password, profile_picture, name) VALUES (?, ?, ?, ?)";
-                try (Connection conn = DatabaseConnection.getConnection();
-                     PreparedStatement ps = conn.prepareStatement(insert)) {
-                    ps.setString(1, admin.getUsername());
-                    ps.setString(2, admin.getPassword());
-                    ps.setString(3, admin.getProfilePicture());
-                    ps.setString(4, admin.getName());
-                    ps.executeUpdate();
-                } catch (SQLException ex) {
-                    ex.printStackTrace();
-                }
-            } else {
-                String update = "UPDATE admin SET username=?, password=?, profile_picture=?, name=? WHERE id=?";
-                try (Connection conn = DatabaseConnection.getConnection();
-                     PreparedStatement ps = conn.prepareStatement(update)) {
-                    ps.setString(1, admin.getUsername());
-                    ps.setString(2, admin.getPassword());
-                    ps.setString(3, admin.getProfilePicture());
-                    ps.setString(4, admin.getName());
-                    ps.setInt(5, admin.getId());
-                    ps.executeUpdate();
-                } catch (SQLException ex) {
-                    ex.printStackTrace();
-                }
-            }
-            onSave.run();
-        });
-    }
+dlg.setResultConverter(bt -> {
+if (bt == saveBtn) {
+return new StaffManagementView.Admin(
+isNew ? 0 : existing.getId(),
+usernameTf.getText().trim(),
+passwordTf.getText().trim(),
+profilePictureTf.getText().trim(),
+nameTf.getText().trim()
+);
+}
+return null;
+});
+dlg.showAndWait().ifPresent(admin -> {
+String hashedPassword = admin.getPassword().isEmpty()
+? (!isNew && existing != null ? existing.getPassword() : "")
+: PasswordUtil.hashPassword(admin.getPassword());
+
+if (isNew) {
+String insert = "INSERT INTO admin (username, password, profile_picture, name) VALUES (?, ?, ?, ?)";
+try (Connection conn = DatabaseConnection.getConnection();
+PreparedStatement ps = conn.prepareStatement(insert)) {
+ps.setString(1, admin.getUsername());
+ps.setString(2, hashedPassword);
+ps.setString(3, admin.getProfilePicture());
+ps.setString(4, admin.getName());
+ps.executeUpdate();
+} catch (SQLException ex) {
+ex.printStackTrace();
+}
+} else {
+String update;
+if (admin.getPassword().isEmpty()) {
+// Don't update password if left blank
+update = "UPDATE admin SET username=?, profile_picture=?, name=? WHERE id=?";
+} else {
+update = "UPDATE admin SET username=?, password=?, profile_picture=?, name=? WHERE id=?";
+}
+try (Connection conn = DatabaseConnection.getConnection();
+PreparedStatement ps = conn.prepareStatement(update)) {
+ps.setString(1, admin.getUsername());
+if (admin.getPassword().isEmpty()) {
+ps.setString(2, admin.getProfilePicture());
+ps.setString(3, admin.getName());
+ps.setInt(4, admin.getId());
+} else {
+ps.setString(2, hashedPassword);
+ps.setString(3, admin.getProfilePicture());
+ps.setString(4, admin.getName());
+ps.setInt(5, admin.getId());
+}
+ps.executeUpdate();
+} catch (SQLException ex) {
+ex.printStackTrace();
+}
+}
+onSave.run();
+});
+}
+
 }

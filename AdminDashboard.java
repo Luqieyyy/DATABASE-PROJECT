@@ -282,6 +282,7 @@ public class AdminDashboard extends Application {
             if (reader != null) {
                 reader.stopReading();
             }
+            // Open login window
             LoginView loginView = new LoginView();
             Stage loginStage = new Stage();
             try {
@@ -289,7 +290,11 @@ public class AdminDashboard extends Application {
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
+            // Close the current (dashboard) window
+            Stage currentStage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+            currentStage.close();
         });
+
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);

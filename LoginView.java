@@ -118,11 +118,12 @@ public class LoginView extends Application {
         loginBtn.setOnAction(e -> {
             String user = usernameField.getText().trim();
             String pass = passwordField.getText().trim();
+            String hashedPass = PasswordUtil.hashPassword(pass);
             try (Connection conn = DatabaseConnection.getConnection()) {
                 String sql = "SELECT * FROM admin WHERE username=? AND password=?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setString(1, user);
-                stmt.setString(2, pass);
+                stmt.setString(2, hashedPass);
                 ResultSet rs = stmt.executeQuery();
                 if (rs.next()) {
                     AdminModel.setName(rs.getString("name"));
@@ -137,6 +138,7 @@ public class LoginView extends Application {
                 messageLabel.setText("Database error.");
             }
         });
+
 
         // Forgot password link
         Label forgot = new Label("Forgot password?");

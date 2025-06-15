@@ -101,7 +101,7 @@ public class StaffManagementView extends VBox {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty ? null : item);
+                setText(empty ? null : (item == null ? "" : "*".repeat(8))); // Show 8 asterisks always
                 setStyle(fontStyle);
             }
         });
