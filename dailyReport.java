@@ -115,23 +115,29 @@ public class dailyReport {
         previewTable.setEditable(true);
 
         TableColumn<AttendanceRow, Integer> colId = new TableColumn<>("Child ID");
+        colId.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         colId.setCellValueFactory(data -> data.getValue().childIdProperty().asObject());
         colId.setPrefWidth(20);
 
         TableColumn<AttendanceRow, String> colName = new TableColumn<>("Name");
+        colName.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         colName.setCellValueFactory(data -> data.getValue().nameProperty());
         colName.setPrefWidth(80);
         
         TableColumn<AttendanceRow, String> colStatus = new TableColumn<>("Status");
+        colStatus.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         colStatus.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getStatus()));
         colStatus.setPrefWidth(80);
         TableColumn<AttendanceRow, String> colReason = new TableColumn<>("Reason");
+        colReason.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         colReason.setCellValueFactory(data -> data.getValue().reasonProperty());
         colReason.setPrefWidth(80);
         TableColumn<AttendanceRow, String> colCheckIn = new TableColumn<>("Check In");
+        colCheckIn.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         colCheckIn.setCellValueFactory(data -> data.getValue().checkInTimeProperty());
         colReason.setPrefWidth(80);
         TableColumn<AttendanceRow, String> colCheckOut = new TableColumn<>("Check Out");
+        colCheckOut.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #222;");
         colCheckOut.setCellValueFactory(data -> data.getValue().checkOutTimeProperty());
         
         TableColumn<AttendanceRow, String> colRemark = new TableColumn<>("Remark");

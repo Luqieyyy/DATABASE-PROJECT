@@ -46,7 +46,7 @@ public class StaffManagementView extends VBox {
         buildTable();
 
         Button addBtn = new Button("Add New Staff");
-        addBtn.getStyleClass().add("button-birulawa");
+        addBtn.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         addBtn.setOnAction(e -> CRUDDialogs.showStaffDialog(null, true, this::reload)); // update CRUDDialogs to use Admin
 
         mainBody.getChildren().addAll(table, addBtn);
@@ -79,12 +79,54 @@ public class StaffManagementView extends VBox {
         profilePictureCol.setCellValueFactory(new PropertyValueFactory<>("profilePicture"));
         nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
 
+        String fontStyle = "-fx-font-family: 'Poppins', 'Arial', sans-serif; -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #181818;";
+
+        idCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(Integer item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : String.valueOf(item));
+                setStyle(fontStyle);
+            }
+        });
+        usernameCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item);
+                setStyle(fontStyle);
+            }
+        });
+        passwordCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item);
+                setStyle(fontStyle);
+            }
+        });
+        profilePictureCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item);
+                setStyle(fontStyle);
+            }
+        });
+        nameCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item);
+                setStyle(fontStyle);
+            }
+        });
         actCol.setCellFactory(tc -> new TableCell<>() {
             private final Button edit = new Button("Edit");
             private final Button del = new Button("Delete");
             {
-                edit.getStyleClass().add("button-birulawa1");
-                del.getStyleClass().add("buttonlogout1");
+                edit.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
+                del.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
                 edit.setOnAction(e -> showEdit(getCurrent()));
                 del.setOnAction(e -> {
                     deleteAdmin(getCurrent());

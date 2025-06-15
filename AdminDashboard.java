@@ -23,7 +23,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-
+import javafx.animation.PauseTransition;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -414,15 +414,45 @@ public class AdminDashboard extends Application {
         liveOuts.setPrefHeight(300);
         liveOuts.setPrefWidth(300);
         updateLiveScans();
+        
+        Font checkFont = Font.font("JetBrains Mono", FontWeight.NORMAL, 16); // or "Fira Mono", "Consolas", etc.
 
-        VBox inBox  = new VBox(new Label("Check-Ins"), liveIns);
+     // For Check-Ins
+     liveIns.setCellFactory(list -> new ListCell<>() {
+         @Override
+         protected void updateItem(String item, boolean empty) {
+             super.updateItem(item, empty);
+             setText(item);
+             setFont(checkFont);
+             setStyle("-fx-text-fill: #181818;"); // Optional: custom text color
+         }
+     });
+     // For Check-Outs
+     liveOuts.setCellFactory(list -> new ListCell<>() {
+         @Override
+         protected void updateItem(String item, boolean empty) {
+             super.updateItem(item, empty);
+             setText(item);
+             setFont(checkFont);
+             setStyle("-fx-text-fill: #181818;");
+         }
+     });
+
+
+        Label checkInsLabel = new Label("Check-Ins");
+        checkInsLabel.setFont(Font.font("Impact", FontWeight.EXTRA_BOLD, 20));
+
+        VBox inBox = new VBox(checkInsLabel, liveIns);
         inBox.setStyle("-fx-background-color: #FFC72C; -fx-background-radius: 18; -fx-padding: 18; -fx-effect: dropshadow(three-pass-box,rgba(0,0,0,0.06),4,0,0,2);");
         inBox.setMaxWidth(600);
         inBox.setMinHeight(200);
         inBox.setPrefHeight(200);
         inBox.setMaxHeight(200);
 
-        VBox outBox = new VBox(new Label("Check-Outs"), liveOuts);
+        Label checkOutsLabel = new Label("Check-Outs");
+        checkOutsLabel.setFont(Font.font("Impact", FontWeight.EXTRA_BOLD, 20));
+
+        VBox outBox = new VBox(checkOutsLabel, liveOuts);
         outBox.setStyle("-fx-background-color: #FFC72C; -fx-background-radius: 18; -fx-padding: 18; -fx-effect: dropshadow(three-pass-box,rgba(0,0,0,0.06),4,0,0,2);");
         outBox.setMaxWidth(600);
         outBox.setMinHeight(200);
@@ -696,15 +726,48 @@ public class AdminDashboard extends Application {
             stmt.executeUpdate();
         }
     }
+    public static void showToast(Stage owner, String message) {
+        Label toastLabel = new Label(message);
+        toastLabel.setStyle("-fx-background-color: #323232; -fx-text-fill: white; -fx-padding: 16px 32px; -fx-background-radius: 32px; -fx-font-size: 20px; -fx-font-weight: bold;");
+        toastLabel.setOpacity(0);
+
+        StackPane root = (StackPane) owner.getScene().getRoot();
+        root.getChildren().add(toastLabel);
+
+        StackPane.setAlignment(toastLabel, Pos.CENTER);
+
+        Timeline fadeIn = new Timeline(
+            new KeyFrame(Duration.ZERO, new KeyValue(toastLabel.opacityProperty(), 0)),
+            new KeyFrame(Duration.seconds(0.2), new KeyValue(toastLabel.opacityProperty(), 1))
+        );
+        Timeline stay = new Timeline(new KeyFrame(Duration.seconds(2)));
+        Timeline fadeOut = new Timeline(
+            new KeyFrame(Duration.ZERO, new KeyValue(toastLabel.opacityProperty(), 1)),
+            new KeyFrame(Duration.seconds(0.5), new KeyValue(toastLabel.opacityProperty(), 0))
+        );
+
+        fadeIn.setOnFinished(e -> stay.play());
+        stay.setOnFinished(e -> fadeOut.play());
+        fadeOut.setOnFinished(e -> root.getChildren().remove(toastLabel));
+
+        fadeIn.play();
+    }
 
 
     // Helper to show alerts on UI
     private static void showAlert(String msg, Alert.AlertType type) {
         Alert alert = new Alert(type);
-        alert.setTitle(type == Alert.AlertType.ERROR ? "Error" : "Info");
+        alert.setTitle(type == Alert.AlertType.ERROR ? "Error" : "Scan Successful");
         alert.setHeaderText(null);
         alert.setContentText(msg);
-        alert.showAndWait();
+
+        // Make alert non-blocking (not wait for OK)
+        alert.show();
+
+        // Auto-close after 3 seconds (3000 ms)
+        PauseTransition delay = new PauseTransition(javafx.util.Duration.seconds(3));
+        delay.setOnFinished(e -> alert.close());
+        delay.play();
     }
 
 

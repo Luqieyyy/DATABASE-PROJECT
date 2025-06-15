@@ -52,7 +52,7 @@ public class ChildrenView extends VBox {
         buildTable();
 
         Button addBtn = new Button("Add New Child");
-        addBtn.getStyleClass().add("button-birulawa");
+        addBtn.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
         addBtn.setOnAction(e -> CRUDDialogs.showChildDialog(null, true, this::reload));
 
         mainContent.getChildren().addAll(table, addBtn);
@@ -86,13 +86,69 @@ public class ChildrenView extends VBox {
         parentNameCol   .setCellValueFactory(new PropertyValueFactory<>("parentName"));
         parentContactCol.setCellValueFactory(new PropertyValueFactory<>("parentContact"));
         uidCol          .setCellValueFactory(new PropertyValueFactory<>("uid"));
+        
+        // Custom cell factory for font and size
+        String fontStyle = "-fx-font-family: 'Poppins', 'Arial', sans-serif; -fx-font-size: 13px;-fx-font-weight: bold; -fx-text-fill: #181818;";
+
+        idCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(Integer item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(String.valueOf(item));
+                    setStyle(fontStyle);
+                }
+            }
+        });
+        nameCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item);
+                setStyle(fontStyle);
+            }
+        });
+        dobCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(LocalDate item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.toString());
+                setStyle(fontStyle);
+            }
+        });
+        parentNameCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item);
+                setStyle(fontStyle);
+            }
+        });
+        parentContactCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item);
+                setStyle(fontStyle);
+            }
+        });
+        uidCol.setCellFactory(tc -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : item);
+                setStyle(fontStyle);
+            }
+        });
 
         actionsCol.setCellFactory(tc -> new TableCell<>() {
             private final Button edit = new Button("Edit");
             private final Button del  = new Button("Delete");
             {
-                edit.getStyleClass().add("button-birulawa1");
-                del .getStyleClass().add("buttonlogout1");
+            	edit.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
+                del.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
                 edit.setOnAction(e -> showEdit(getCurrent()));
                 del .setOnAction(e -> {
                     Child current = getCurrent();

@@ -119,8 +119,8 @@ public class CRUDDialogs {
             private final Button delBtn  = new Button("Delete");
 
             {
-                editBtn.getStyleClass().add("button-birulawa1");
-                delBtn.getStyleClass().add("buttonlogout1");
+                editBtn.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
+                delBtn.setStyle("-fx-background-color: #FFCB3C;-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #222; -fx-background-radius: 28px;");
                 editBtn.setOnAction(e -> onEdit.accept(getCurrentItem()));
                 delBtn.setOnAction(e -> onDelete.accept(getCurrentItem()));
                 setGraphic(new HBox(5, editBtn, delBtn));
