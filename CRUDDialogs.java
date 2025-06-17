@@ -7,7 +7,12 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.util.Callback;
-
+import javafx.stage.FileChooser;
+import javafx.scene.image.ImageView;
+import javafx.scene.image.Image;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -148,22 +153,58 @@ dlg.initModality(Modality.APPLICATION_MODAL);
 dlg.setTitle(isNew ? "Add New Staff" : "Edit Staff");
 
 TextField usernameTf = new TextField();
-TextField passwordTf = new TextField();
+PasswordField passwordTf = new PasswordField(); // Hide password input
 TextField profilePictureTf = new TextField();
+profilePictureTf.setEditable(false); // Only file chooser allowed
 TextField nameTf = new TextField();
 
+// Profile picture preview
+ImageView imagePreview = new ImageView();
+imagePreview.setFitWidth(100);
+imagePreview.setFitHeight(120);
+
+// Upload button
+Button uploadBtn = new Button("Upload Profile Picture");
+uploadBtn.setOnAction(e -> {
+FileChooser fileChooser = new FileChooser();
+fileChooser.setTitle("Select Profile Picture");
+fileChooser.getExtensionFilters().addAll(
+new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg", "*.gif")
+);
+File file = fileChooser.showOpenDialog(dlg.getOwner());
+if (file != null) {
+try {
+String destDir = "profile_pics";
+Files.createDirectories(new File(destDir).toPath());
+File destFile = new File(destDir, file.getName());
+Files.copy(file.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+profilePictureTf.setText(destFile.getName());
+imagePreview.setImage(new Image(destFile.toURI().toString()));
+} catch (Exception ex) {
+ex.printStackTrace();
+}
+}
+});
+
+// If editing, populate fields and show previous image if exists
 if (!isNew && existing != null) {
 usernameTf.setText(existing.getUsername());
-// Password field left blank for security
 profilePictureTf.setText(existing.getProfilePicture());
 nameTf.setText(existing.getName());
+// Don't fill password field for security (user must type new one if changing)
+if (existing.getProfilePicture() != null && !existing.getProfilePicture().isEmpty()) {
+File imgFile = new File("profile_pics", existing.getProfilePicture());
+if (imgFile.exists())
+imagePreview.setImage(new Image(imgFile.toURI().toString()));
+}
 }
 
 VBox vb = new VBox(10,
-new Label("Username:"),       usernameTf,
-new Label("Password:"),       passwordTf,
-new Label("Profile Picture:"), profilePictureTf,
-new Label("Name:"),           nameTf
+new Label("Username:"), usernameTf,
+new Label("Password:"), passwordTf,
+new Label("Profile Picture:"), new HBox(10, uploadBtn, profilePictureTf),
+imagePreview,
+new Label("Name:"), nameTf
 );
 vb.setPadding(new Insets(20));
 dlg.getDialogPane().setContent(vb);
@@ -173,27 +214,31 @@ dlg.getDialogPane().getButtonTypes().addAll(saveBtn, ButtonType.CANCEL);
 
 dlg.setResultConverter(bt -> {
 if (bt == saveBtn) {
+// Password: if empty, keep old one (edit mode only)
+String password;
+if (!isNew && passwordTf.getText().isEmpty()) {
+password = existing.getPassword();
+} else {
+password = PasswordUtil.hashPassword(passwordTf.getText().trim());
+}
 return new StaffManagementView.Admin(
 isNew ? 0 : existing.getId(),
 usernameTf.getText().trim(),
-passwordTf.getText().trim(),
+password,
 profilePictureTf.getText().trim(),
 nameTf.getText().trim()
 );
 }
 return null;
 });
-dlg.showAndWait().ifPresent(admin -> {
-String hashedPassword = admin.getPassword().isEmpty()
-? (!isNew && existing != null ? existing.getPassword() : "")
-: PasswordUtil.hashPassword(admin.getPassword());
 
+dlg.showAndWait().ifPresent(admin -> {
 if (isNew) {
 String insert = "INSERT INTO admin (username, password, profile_picture, name) VALUES (?, ?, ?, ?)";
 try (Connection conn = DatabaseConnection.getConnection();
 PreparedStatement ps = conn.prepareStatement(insert)) {
 ps.setString(1, admin.getUsername());
-ps.setString(2, hashedPassword);
+ps.setString(2, admin.getPassword());
 ps.setString(3, admin.getProfilePicture());
 ps.setString(4, admin.getName());
 ps.executeUpdate();
@@ -201,26 +246,14 @@ ps.executeUpdate();
 ex.printStackTrace();
 }
 } else {
-String update;
-if (admin.getPassword().isEmpty()) {
-// Don't update password if left blank
-update = "UPDATE admin SET username=?, profile_picture=?, name=? WHERE id=?";
-} else {
-update = "UPDATE admin SET username=?, password=?, profile_picture=?, name=? WHERE id=?";
-}
+String update = "UPDATE admin SET username=?, password=?, profile_picture=?, name=? WHERE id=?";
 try (Connection conn = DatabaseConnection.getConnection();
 PreparedStatement ps = conn.prepareStatement(update)) {
 ps.setString(1, admin.getUsername());
-if (admin.getPassword().isEmpty()) {
-ps.setString(2, admin.getProfilePicture());
-ps.setString(3, admin.getName());
-ps.setInt(4, admin.getId());
-} else {
-ps.setString(2, hashedPassword);
+ps.setString(2, admin.getPassword());
 ps.setString(3, admin.getProfilePicture());
 ps.setString(4, admin.getName());
 ps.setInt(5, admin.getId());
-}
 ps.executeUpdate();
 } catch (SQLException ex) {
 ex.printStackTrace();
@@ -229,5 +262,6 @@ ex.printStackTrace();
 onSave.run();
 });
 }
+
 
 }

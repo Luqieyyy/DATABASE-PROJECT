@@ -24,6 +24,8 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import javafx.animation.PauseTransition;
+
+import java.io.File;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -185,15 +187,24 @@ public class AdminDashboard extends Application {
         sidebar.setStyle("-fx-background-color: #d3e3bd;");
 
         Image profileImage;
+        String profilePicFile = AdminModel.getProfilePicture();
+
         try {
-            profileImage = new Image(getClass().getResourceAsStream(AdminModel.getProfilePicture()));
-            if (profileImage.isError()) throw new Exception("Image error");
+            File imgFile = new File("profile_pics/" + profilePicFile); // <--- adjust path if needed
+            if (imgFile.exists()) {
+                profileImage = new Image(imgFile.toURI().toString());
+            } else {
+                // fallback: try loading as resource (for built-in images, eg. default_user.png in /nfc/)
+                profileImage = new Image(getClass().getResource("/nfc/default_user.png").toExternalForm());
+            }
         } catch (Exception e) {
             profileImage = new Image("https://via.placeholder.com/60");
         }
+
         ImageView profilePic = new ImageView(profileImage);
         profilePic.setFitWidth(100);
         profilePic.setFitHeight(130);
+
 
         Label nameLabel = new Label("" + AdminModel.getName());
         nameLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");

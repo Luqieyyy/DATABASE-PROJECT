@@ -106,13 +106,32 @@ public class StaffManagementView extends VBox {
             }
         });
         profilePictureCol.setCellFactory(tc -> new TableCell<>() {
+            private final int imageSize = 44; // Or any preferred size
+
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty ? null : item);
-                setStyle(fontStyle);
+                if (empty || item == null || item.isBlank()) {
+                    setGraphic(null);
+                    setText(null);
+                } else {
+                    // Try to load from "profile_pics" folder in your project directory
+                    java.io.File imgFile = new java.io.File("profile_pics/" + item);
+                    if (imgFile.exists()) {
+                        ImageView iv = new ImageView(new Image(imgFile.toURI().toString()));
+                        iv.setFitHeight(imageSize);
+                        iv.setFitWidth(imageSize);
+                        iv.setPreserveRatio(true);
+                        setGraphic(iv);
+                        setText(null);
+                    } else {
+                        setGraphic(null);
+                        setText("No image");
+                    }
+                }
             }
         });
+
         nameCol.setCellFactory(tc -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
